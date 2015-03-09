@@ -1,0 +1,23 @@
+{{ define "header" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Radiotation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+<link type="text/css" rel="stylesheet" href="/css/animate.css">
+<link type="text/css" rel="stylesheet" href="/css/main.css">
+<script src="/js/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+<script type="text/javascript">
+  var host = "{{ .Host }}";
+</script>
+<script src="js/main.js"></script>
+</head>
+<body>
+{{ end }}
+
+{{ define "footer"}}
+</body>
+</html>
+{{ end }}

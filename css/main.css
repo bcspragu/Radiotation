@@ -1,0 +1,57 @@
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  -webkit-transform-style: preserve-3d;
+  -moz-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+}
+
+.splash {
+  text-align: center;
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.splash span {
+  font-size: 5em;
+}
+
+.splash > .middle.invisible {
+  visibility: hidden;
+}
+
+.splash > .first {
+  margin-right: -10%;
+  -webkit-animation-duration: 1s;
+          animation-duration: 1s;
+  -webkit-animation-fill-mode: both;
+          animation-fill-mode: both;
+}
+
+.splash > .first.move {
+  -webkit-animation-name: slideOver;
+          animation-name: slideOver;
+}
+
+@-webkit-keyframes slideOver {
+  from {
+    margin-right: -10%;
+  }
+
+  to {
+    margin-right: 0;
+  }
+}
+
+@keyframes slideOver {
+  from {
+    margin-right: -10%;
+  }
+
+  to {
+    margin-right: 0;
+  }
+}
