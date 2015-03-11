@@ -6,7 +6,7 @@
   </div>
   <div class="container-fluid hide content">
     <div class="jumbotron">
-      <form class="form-horizontal" action="/search">
+      <form class="form-horizontal search-form" action="/search">
         <div class="form-group">
           <label for="search" class="col-sm-2 control-label">Search for Music</label>
           <div class="col-sm-8">
@@ -17,6 +17,8 @@
           </div>
         </div>
       </form>
+    </div>
+    <div class="results hide">
     </div>
   </div>
 {{ template "footer" .}}

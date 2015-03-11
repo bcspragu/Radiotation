@@ -56,3 +56,18 @@ html, body {
     margin-right: 0;
   }
 }
+
+.track h1 {
+  margin-top: 0;
+  font-size: 30px
+}
+
+.track h2 {
+  margin-top: 0;
+  font-size: 24px
+}
+
+.add {
+  font-size: 50px;
+  text-align: right;
+}

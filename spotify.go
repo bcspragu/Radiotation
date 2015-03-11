@@ -7,21 +7,38 @@ import (
 	"net/http"
 )
 
-type Tracks []Track
-
-type Track struct {
-	Artists    []Artist
-	Name       string
-	ID         string
-	IsPlayable bool
+type SpotifyResponse struct {
+	Tracks Tracks
 }
 
-type Artist struct {
+type Tracks struct {
+	Items []Track
+}
+
+type Track struct {
+	Artists []Artist
+	Name    string
+	ID      string
+	Album   Album
+}
+
+type Album struct {
 	Name   string
 	Images []Image
 }
 
+func (a *Album) Image() string {
+	return a.Images[0].URL
+}
+
+type Artist struct {
+	Name string
+}
+
 type Image struct {
+	Width  int
+	Height int
+	URL    string
 }
 
 func searchTrack(trackName string) []Track {
@@ -37,11 +54,11 @@ func searchTrack(trackName string) []Track {
 		fmt.Println("Error reading from Spotify API:", err)
 		return []Track{}
 	}
-	var tracks Tracks
-	err = json.Unmarshal(body, &tracks)
+	var spotifyResp SpotifyResponse
+	err = json.Unmarshal(body, &spotifyResp)
 	if err != nil {
 		fmt.Println("Error loading data from Spotify API:", err)
 		return []Track{}
 	}
-	return tracks
+	return spotifyResp.Tracks.Items
 }
