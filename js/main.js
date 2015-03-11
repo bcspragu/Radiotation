@@ -11,7 +11,21 @@ $(function() {
     res.load('/search', form.serialize(), function() {
       res.removeClass('hide').addClass('fadeIn animated');
     });
-    return false;
+  });
+
+  $('.results').on('click', '.add a', function(e) {
+    e.preventDefault();
+    var icon = $(this).find('.glyphicon');
+    if (icon.hasClass('glyphicon-plus')) {
+      var form = $(this).parents('form');
+      $.post("/add", form.serialize(), function(data) {
+        if (data.Error) {
+          alert(data.Message);
+        } else {
+          form.find('.glyphicon').removeClass('glyphicon-plus').addClass('glyphicon-ok');
+        }
+      });
+    }
   });
 });
 
@@ -19,7 +33,7 @@ function startAnimation() {
   // Move R over
   setTimeout(function() {
     $('.first').addClass('move');
-  }, 500);
+  }, 250);
 
   // Fade in "adi"
   $('.first').onAnimationEnd(function() {
@@ -30,7 +44,7 @@ function startAnimation() {
   $('.middle').onAnimationEnd(function() {
     setTimeout(function() {
       $('.splash').addClass('fadeOut animated');
-    }, 500);
+    }, 250);
   });
   
   // Fade in content

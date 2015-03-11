@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 type SpotifyResponse struct {
@@ -27,10 +29,6 @@ type Album struct {
 	Images []Image
 }
 
-func (a *Album) Image() string {
-	return a.Images[0].URL
-}
-
 type Artist struct {
 	Name string
 }
@@ -41,8 +39,20 @@ type Image struct {
 	URL    string
 }
 
+func (a *Album) Image() string {
+	return a.Images[0].URL
+}
+
+func (t *Track) ArtistList() string {
+	names := make([]string, len(t.Artists))
+	for i, a := range t.Artists {
+		names[i] = a.Name
+	}
+	return strings.Join(names, ", ")
+}
+
 func searchTrack(trackName string) []Track {
-	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", trackName)
+	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", url.QueryEscape(trackName))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
 	if err != nil {

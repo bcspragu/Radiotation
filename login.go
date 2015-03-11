@@ -27,33 +27,38 @@ func init() {
 	s = securecookie.New(hashKey, blockKey)
 }
 
-func loginID(w http.ResponseWriter, r *http.Request) int {
-	var data map[string]string
+func withLogin(hand func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var data map[string]string
 
-	cookie, err := r.Cookie("data")
-	if err == nil {
-		// They have a cookie and we can decode it
-		err = s.Decode("data", cookie.Value, &data)
-		id, _ := strconv.Atoi(data["id"])
-		return id
-	} else {
-		// Assume they don't have a cookie, give them an ID
-		data = map[string]string{
-			"id": strconv.Itoa(currentID),
+		r.ParseForm()
+		cookie, err := r.Cookie("data")
+		if err == nil {
+			// They have a cookie and we can decode it
+			err = s.Decode("data", cookie.Value, &data)
+			r.Form.Set("login", data["login"])
+			fmt.Println(data)
+			hand(w, r)
+		} else {
+			// Assume they don't have a cookie, give them an ID
+			data = map[string]string{
+				"login": strconv.Itoa(currentID),
+			}
+
+			q := NewQueue(currentID)
+			idToList[currentID] = q
+			currentID++
+
+			encoded, _ := s.Encode("data", data)
+			cookie := &http.Cookie{
+				Name:  "data",
+				Value: encoded,
+				Path:  "/",
+			}
+			http.SetCookie(w, cookie)
+			r.Form.Set("login", data["login"])
+			fmt.Println(data)
+			hand(w, r)
 		}
-
-		q := NewQueue(currentID)
-		idToList[currentID] = q
-		currentID++
-
-		encoded, _ := s.Encode("data", data)
-		cookie := &http.Cookie{
-			Name:  "data",
-			Value: encoded,
-			Path:  "/",
-		}
-		http.SetCookie(w, cookie)
-		id, _ := strconv.Atoi(data["id"])
-		return id
 	}
 }

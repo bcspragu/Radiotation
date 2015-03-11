@@ -6,14 +6,15 @@
       </div>
     </div>
     <div class="col-sm-8">
-      <h1>
-        {{ range $i, $artist := $track.Artists }}{{ if $i }},{{ end }} {{ .Name }}{{ end }}
-      </h1>
-      <h2>{{ $track.Name }}</h2>
+      <h1>{{ $track.Name }}</h1>
+      <h2>{{ $track.ArtistList }}</h2>
+      <h2>{{ $track.Album.Name }}</h2>
     </div>
     <div class="col-sm-2 add">
-      <!--- Replace this with a form, add submit? -->
-      <a href="/add"><span class="glyphicon glyphicon-plus"></span></a>
+      <form action="/add">
+        <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
+        <input type="hidden" name="id" value="{{ $track.ID }}"/>
+      </form>
     </div>
   </div>
 {{ end }}
