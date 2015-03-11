@@ -9,14 +9,15 @@ html, body {
 }
 
 .splash {
+  position: absolute;
   text-align: center;
-  position: relative;
   top: 50%;
   transform: translateY(-50%);
+  width: 100%;
 }
 
 .splash span {
-  font-size: 5em;
+  font-size: 100px;
 }
 
 .splash > .middle.invisible {
@@ -24,7 +25,7 @@ html, body {
 }
 
 .splash > .first {
-  margin-right: -10%;
+  margin-right: -150px;
   -webkit-animation-duration: 1s;
           animation-duration: 1s;
   -webkit-animation-fill-mode: both;
@@ -38,7 +39,7 @@ html, body {
 
 @-webkit-keyframes slideOver {
   from {
-    margin-right: -10%;
+    margin-right: -150px;
   }
 
   to {
@@ -48,7 +49,7 @@ html, body {
 
 @keyframes slideOver {
   from {
-    margin-right: -10%;
+    margin-right: 150px;
   }
 
   to {

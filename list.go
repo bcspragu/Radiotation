@@ -5,11 +5,6 @@ type Queue struct {
 	Tracks []Track
 }
 
-type Track struct {
-	Name string
-	ID   string
-}
-
 var idToList map[int]*Queue
 
 func init() {

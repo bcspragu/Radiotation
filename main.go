@@ -25,6 +25,7 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", serveHome).Methods("GET")
+	r.HandleFunc("/search", serveSearch).Methods("GET")
 	r.HandleFunc("/ws", serveWs).Methods("GET")
 
 	// In production, static assets are served by nginx
