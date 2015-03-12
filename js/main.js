@@ -23,6 +23,8 @@ $(function() {
           alert(data.Message);
         } else {
           form.find('.glyphicon').removeClass('glyphicon-plus').addClass('glyphicon-ok');
+          var queue = $('.queue');
+          queue.load('/queue');
         }
       });
     }

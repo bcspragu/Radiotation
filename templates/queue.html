@@ -1,0 +1,8 @@
+{{ define "queue" }}
+  {{ range $track := .Queue.Tracks }}
+    <div class="queue-track">
+      <p>{{ $track.Name }}</p>
+    </div>
+  {{ end }}
+{{ end }}
+{{ template "queue" .}}

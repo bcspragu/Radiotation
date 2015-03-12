@@ -51,6 +51,28 @@ func (t *Track) ArtistList() string {
 	return strings.Join(names, ", ")
 }
 
+func getTrack(trackID string) Track {
+	url := fmt.Sprintf("http://api.spotify.com/v1/tracks/%s", url.QueryEscape(trackID))
+	resp, err := http.Get(url)
+	defer resp.Body.Close()
+	if err != nil {
+		fmt.Println("Error querying Spotify API:", err)
+		return Track{}
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading from Spotify API:", err)
+		return Track{}
+	}
+	var track Track
+	err = json.Unmarshal(body, &track)
+	if err != nil {
+		fmt.Println("Error loading data from Spotify API:", err)
+		return Track{}
+	}
+	return track
+}
+
 func searchTrack(trackName string) []Track {
 	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", url.QueryEscape(trackName))
 	resp, err := http.Get(url)

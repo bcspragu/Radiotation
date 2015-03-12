@@ -72,3 +72,11 @@ html, body {
   font-size: 50px;
   text-align: right;
 }
+
+.queue {
+  overflow-x: scroll;
+}
+
+.queue-track {
+  float: left;
+}

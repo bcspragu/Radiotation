@@ -26,6 +26,7 @@ func main() {
 
 	r.HandleFunc("/", withLogin(serveHome)).Methods("GET")
 	r.HandleFunc("/search", serveSearch).Methods("GET")
+	r.HandleFunc("/queue", serveQueue).Methods("GET")
 	r.HandleFunc("/add", withLogin(addToQueue)).Methods("POST")
 	r.HandleFunc("/ws", serveWs).Methods("GET")
 
