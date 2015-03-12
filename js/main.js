@@ -3,6 +3,7 @@ var conn;
 $(function() {
   startAnimation();
   loadWebSockets();
+  sizeQueue();
 
   $('.search-form').submit(function(e) {
     e.preventDefault();
@@ -24,7 +25,7 @@ $(function() {
         } else {
           form.find('.glyphicon').removeClass('glyphicon-plus').addClass('glyphicon-ok');
           var queue = $('.queue');
-          queue.load('/queue');
+          queue.load('/queue', sizeQueue);
         }
       });
     }
@@ -68,6 +69,19 @@ function loadWebSockets() {
     }
   } else {
     // You ain't got WebSockets, brah
+  }
+}
+
+function sizeQueue() {
+  var sum = 0;
+  // This is way too hacky, fix it
+  $(".queue").css('width', '100000');
+  var queueTracks = $(".queue-track");
+  queueTracks.each(function(){sum += $(this).width()});
+  if (queueTracks.length > 0) {
+    $(".queue").css('width', sum);
+  } else {
+    $(".queue").css('width', '');
   }
 }
 

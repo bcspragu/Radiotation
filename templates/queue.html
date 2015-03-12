@@ -1,7 +1,13 @@
 {{ define "queue" }}
   {{ range $track := .Queue.Tracks }}
     <div class="queue-track">
-      <p>{{ $track.Name }}</p>
+      <div href="#" class="thumbnail">
+        <img src="{{ $track.Album.Image }}" alt="{{ $track.Album.Name }}">
+      </div>
+      <div class="track-info">
+        <p>{{ $track.Name }}</p>
+        <p>{{ $track.ArtistList }}</p>
+      </div>
     </div>
   {{ end }}
 {{ end }}

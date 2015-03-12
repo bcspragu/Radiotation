@@ -18,10 +18,11 @@
         </div>
       </form>
     </div>
-    <div class="row queue">
-      {{ template "queue" .}}
+    <div class="queue-holder">
+      <div class="queue">
+        {{ template "queue" .}}
+      </div>
     </div>
-    <div class="row results hide">
-    </div>
+    <div class="results hide"></div>
   </div>
 {{ template "footer" .}}

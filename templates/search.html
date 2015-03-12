@@ -1,3 +1,4 @@
+{{ $q := .Queue }}
 {{ range $track := .Tracks }}
   <div class="row track">
     <div class="col-sm-2">
@@ -10,9 +11,13 @@
       <h2>{{ $track.ArtistList }}</h2>
       <h2>{{ $track.Album.Name }}</h2>
     </div>
-    <div class="col-sm-2 add">
+    <div class="col-sm-1 add">
       <form action="/add">
-        <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
+        {{ if $track.InQueue $q }}
+          <a href="#"><span class="glyphicon glyphicon-ok"></span></a>
+        {{ else }}
+          <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
+        {{ end }}
         <input type="hidden" name="id" value="{{ $track.ID }}"/>
       </form>
     </div>

@@ -3,6 +3,7 @@ html, body {
   width: 100%;
   margin: 0;
   padding: 0;
+
   -webkit-transform-style: preserve-3d;
   -moz-transform-style: preserve-3d;
   transform-style: preserve-3d;
@@ -73,10 +74,25 @@ html, body {
   text-align: right;
 }
 
-.queue {
-  overflow-x: scroll;
+.queue-holder {
+  overflow-x: auto;
 }
 
 .queue-track {
   float: left;
+}
+
+.track-info {
+  float: left;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.queue-track .thumbnail {
+  float: left;
+}
+
+.queue-track .thumbnail img {
+  height: 80px;
+  margin-top: 5px;
 }

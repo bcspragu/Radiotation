@@ -51,6 +51,15 @@ func (t *Track) ArtistList() string {
 	return strings.Join(names, ", ")
 }
 
+func (t *Track) InQueue(q Queue) bool {
+	for _, track := range q.Tracks {
+		if track.ID == t.ID {
+			return true
+		}
+	}
+	return false
+}
+
 func getTrack(trackID string) Track {
 	url := fmt.Sprintf("http://api.spotify.com/v1/tracks/%s", url.QueryEscape(trackID))
 	resp, err := http.Get(url)
