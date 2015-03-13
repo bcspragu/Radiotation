@@ -37,6 +37,8 @@ type connection struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	loginID int
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -94,12 +96,13 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", 405)
 		return
 	}
+	login := LoginID(r)
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	c := &connection{send: make(chan []byte, 256), ws: ws}
+	c := &connection{send: make(chan []byte, 256), ws: ws, loginID: login}
 	h.register <- c
 	go c.writePump()
 	c.readPump()

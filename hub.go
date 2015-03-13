@@ -8,7 +8,7 @@ package main
 // connections.
 type hub struct {
 	// Registered connections.
-	connections map[*connection]bool
+	connections map[int]*connection
 
 	// Inbound messages from the connections.
 	broadcast chan []byte
@@ -24,26 +24,26 @@ var h = hub{
 	broadcast:   make(chan []byte),
 	register:    make(chan *connection),
 	unregister:  make(chan *connection),
-	connections: make(map[*connection]bool),
+	connections: make(map[int]*connection),
 }
 
 func (h *hub) run() {
 	for {
 		select {
 		case c := <-h.register:
-			h.connections[c] = true
+			h.connections[c.loginID] = c
 		case c := <-h.unregister:
-			if _, ok := h.connections[c]; ok {
-				delete(h.connections, c)
+			if _, ok := h.connections[c.loginID]; ok {
+				delete(h.connections, c.loginID)
 				close(c.send)
 			}
 		case m := <-h.broadcast:
-			for c := range h.connections {
+			for _, c := range h.connections {
 				select {
 				case c.send <- m:
 				default:
 					close(c.send)
-					delete(h.connections, c)
+					delete(h.connections, c.loginID)
 				}
 			}
 		}

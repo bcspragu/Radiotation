@@ -3,7 +3,6 @@ var conn;
 $(function() {
   startAnimation();
   loadWebSockets();
-  sizeQueue();
 
   $('.search-form').submit(function(e) {
     e.preventDefault();
@@ -28,6 +27,18 @@ $(function() {
           queue.load('/queue', sizeQueue);
         }
       });
+    } else {
+      var form = $(this).parents('form');
+      $.post("/remove", form.serialize(), function(data) {
+        if (data.Error) {
+          alert(data.Message);
+        } else {
+          form.find('.glyphicon').removeClass('glyphicon-ok').addClass('glyphicon-plus');
+          var queue = $('.queue');
+          queue.load('/queue', sizeQueue);
+        }
+      });
+
     }
   });
 });
@@ -54,6 +65,7 @@ function startAnimation() {
   $('.splash').onAnimationEnd(function() {
     $(this).remove();
     $('.content').removeClass('hide').addClass('fadeIn animated');
+    sizeQueue();
   });
 
 }
@@ -65,7 +77,8 @@ function loadWebSockets() {
       // Something
     }
     conn.onmessage = function(evt) {
-      // Remove song from queue
+      var queue = $('.queue');
+      queue.load('/queue', sizeQueue);
     }
   } else {
     // You ain't got WebSockets, brah
@@ -73,9 +86,9 @@ function loadWebSockets() {
 }
 
 function sizeQueue() {
-  var sum = 0;
+  var sum = 10;
   // This is way too hacky, fix it
-  $(".queue").css('width', '100000');
+  $(".queue").css('width', '10000');
   var queueTracks = $(".queue-track");
   queueTracks.each(function(){sum += $(this).width()});
   if (queueTracks.length > 0) {

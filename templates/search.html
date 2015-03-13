@@ -1,25 +1,29 @@
 {{ $q := .Queue }}
-{{ range $track := .Tracks }}
-  <div class="row track">
-    <div class="col-sm-2">
-      <div href="#" class="thumbnail">
-        <img src="{{ $track.Album.Image }}" alt="{{ $track.Album.Name }}">
+{{ if .Tracks }}
+  {{ range $track := .Tracks }}
+    <div class="row track">
+      <div class="col-sm-1">
+        <div href="#" class="thumbnail">
+          <img src="{{ $track.Album.Image }}" alt="{{ $track.Album.Name }}">
+        </div>
+      </div>
+      <div class="col-sm-9">
+        <h1>{{ $track.Name }}</h1>
+        <h2>{{ $track.ArtistList }}</h2>
+        <h2>{{ $track.Album.Name }}</h2>
+      </div>
+      <div class="col-sm-1 add">
+        <form action="/add">
+          {{ if $track.InQueue $q }}
+            <a href="#"><span class="glyphicon glyphicon-ok"></span></a>
+          {{ else }}
+            <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
+          {{ end }}
+          <input type="hidden" name="id" value="{{ $track.ID }}"/>
+        </form>
       </div>
     </div>
-    <div class="col-sm-8">
-      <h1>{{ $track.Name }}</h1>
-      <h2>{{ $track.ArtistList }}</h2>
-      <h2>{{ $track.Album.Name }}</h2>
-    </div>
-    <div class="col-sm-1 add">
-      <form action="/add">
-        {{ if $track.InQueue $q }}
-          <a href="#"><span class="glyphicon glyphicon-ok"></span></a>
-        {{ else }}
-          <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
-        {{ end }}
-        <input type="hidden" name="id" value="{{ $track.ID }}"/>
-      </form>
-    </div>
-  </div>
+  {{ end }}
+{{ else }}
+  <h1>No Tracks Found</h1>
 {{ end }}
