@@ -27,16 +27,16 @@ func main() {
 	r.HandleFunc("/", withLogin(serveHome)).Methods("GET")
 	r.HandleFunc("/search", serveSearch).Methods("GET")
 	r.HandleFunc("/queue", serveQueue).Methods("GET")
+	r.HandleFunc("/queues", serveQueues).Methods("GET")
 	r.HandleFunc("/add", withLogin(addToQueue)).Methods("POST")
 	r.HandleFunc("/remove", withLogin(removeFromQueue)).Methods("POST")
-	r.HandleFunc("/next", serveSong).Methods("GET")
+	r.HandleFunc("/pop", serveSong).Methods("GET")
 	r.HandleFunc("/ws", withLogin(serveWs)).Methods("GET")
 
 	// In production, static assets are served by nginx
 	if dev {
 		http.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("./js"))))
 		http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir("./css"))))
-		http.Handle("/img/", http.StripPrefix("/img/", http.FileServer(http.Dir("./img"))))
 	}
 
 	http.Handle("/", r)

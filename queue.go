@@ -33,6 +33,12 @@ type QueueResponse struct {
 	Message string
 }
 
+type TrackListResponse struct {
+	Error   bool
+	Message string
+	Tracks  []Track
+}
+
 type TrackResponse struct {
 	Error   bool
 	Message string
@@ -146,6 +152,34 @@ func serveSong(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func serveQueues(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	indices := make([]int, len(queues))
+	data := TrackListResponse{}
+	data.Tracks = make([]Track, CountTracks(queues))
+	i := 0
+	q_i := 0
+	for {
+		// Stop looping when we've filled our array
+		if i == len(data.Tracks) {
+			break
+		}
+		// Search until we find a queue that we haven't used all of
+		for queues[q_i].TrackCount() == indices[q_i] {
+			q_i = (q_i + 1) % len(queues)
+		}
+		// Add the track from the earliest unadded position in this queue
+		data.Tracks[i] = queues[q_i].Tracks[indices[q_i]]
+		indices[q_i]++
+		q_i = (q_i + 1) % len(queues)
+		fmt.Println(q_i)
+		i++
+	}
+
+	respString, _ := json.Marshal(data)
+	fmt.Fprint(w, string(respString))
+}
+
 func HasTracks() bool {
 	for _, q := range queues {
 		if len(q.Tracks) > 0 {
@@ -153,4 +187,16 @@ func HasTracks() bool {
 		}
 	}
 	return false
+}
+
+func (q *Queue) TrackCount() int {
+	return len(q.Tracks)
+}
+
+func CountTracks(queues []*Queue) int {
+	trackCount := 0
+	for _, q := range queues {
+		trackCount += q.TrackCount()
+	}
+	return trackCount
 }
