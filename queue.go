@@ -172,7 +172,6 @@ func serveQueues(w http.ResponseWriter, r *http.Request) {
 		data.Tracks[i] = queues[q_i].Tracks[indices[q_i]]
 		indices[q_i]++
 		q_i = (q_i + 1) % len(queues)
-		fmt.Println(q_i)
 		i++
 	}
 
