@@ -1,28 +1,18 @@
+
 {{ template "header" .}}
-  <div class="splash">
-    <span class="first">R</span>
-    <span class="middle invisible">adi</span>
-    <span>otation</span>
-  </div>
-  <div class="container-fluid hide content">
+  <div class="container-fluid content">
     <div class="jumbotron">
-      <form class="form-horizontal search-form" action="/search">
+      <form class="form-horizontal room-form" action="/rooms">
         <div class="form-group">
-          <label for="search" class="col-sm-2 control-label">Search for Music</label>
+          <label for="room" class="col-sm-2 control-label">Room Name</label>
           <div class="col-sm-8">
-            <input type="text" name="search" class="form-control" placeholder="Song name">
+            <input type="text" name="room" class="form-control room-name" placeholder="Room Name">
           </div>
           <div class="col-sm-2">
-            <button type="submit" class="btn btn-primary search">Search</button>
+            <button type="submit" class="btn btn-primary">Search</button>
           </div>
         </div>
       </form>
     </div>
-    <div class="queue-holder">
-      <div class="queue">
-        {{ template "queue" .}}
-      </div>
-    </div>
-    <div class="results hide"></div>
   </div>
 {{ template "footer" .}}

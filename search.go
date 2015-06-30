@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func serveSearch(w http.ResponseWriter, r *http.Request) {
+func serveSearch(w http.ResponseWriter, r *http.Request, room *Room) {
 	data := struct {
 		Host   string
 		Tracks []Track
@@ -13,7 +13,7 @@ func serveSearch(w http.ResponseWriter, r *http.Request) {
 	}{
 		r.Host,
 		searchTrack(r.FormValue("search")),
-		FindQueue(r),
+		room.Queue(userID(r)),
 	}
 	err := templates.ExecuteTemplate(w, "search.html", data)
 	if err != nil {

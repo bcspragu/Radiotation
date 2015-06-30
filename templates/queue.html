@@ -1,14 +1,16 @@
 {{ define "queue" }}
-  {{ range $track := .Queue.Tracks }}
-    <div class="queue-track">
-      <div href="#" class="thumbnail">
-        <img src="{{ $track.Album.Image }}" alt="{{ $track.Album.Name }}">
+  {{ if .Queue }}
+    {{ range $track := .Queue.Tracks }}
+      <div class="queue-track">
+        <div href="#" class="thumbnail">
+          <img src="{{ $track.Album.Image }}" alt="{{ $track.Album.Name }}">
+        </div>
+        <div class="track-info">
+          <p>{{ $track.Name }}</p>
+          <p>{{ $track.ArtistList }}</p>
+        </div>
       </div>
-      <div class="track-info">
-        <p>{{ $track.Name }}</p>
-        <p>{{ $track.ArtistList }}</p>
-      </div>
-    </div>
+    {{ end }}
   {{ end }}
 {{ end }}
 {{ template "queue" .}}

@@ -1,0 +1,23 @@
+{{ template "header" .}}
+  <div class="container-fluid content">
+    <div class="jumbotron">
+      <form class="form-horizontal search-form" action="/search">
+        <div class="form-group">
+          <label for="search" class="col-sm-2 control-label">Search for Music</label>
+          <div class="col-sm-8">
+            <input type="text" name="search" class="form-control" placeholder="Song name">
+          </div>
+          <div class="col-sm-2">
+            <button type="submit" class="btn btn-primary search">Search</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="queue-holder">
+      <div class="queue">
+        {{ template "queue" .}}
+      </div>
+    </div>
+    <div class="results"></div>
+  </div>
+{{ template "footer" .}}

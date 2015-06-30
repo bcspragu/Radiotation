@@ -1,8 +1,12 @@
 var conn;
 
 $(function() {
-  startAnimation();
-  loadWebSockets();
+  $('.room-form').submit(function(e) {
+    var form = $(this);
+    var room = form.find('.room-name').val();
+    form.attr('action', '/rooms/' + room);
+    form.find('.room-name').remove();
+  });
 
   $('.search-form').submit(function(e) {
     e.preventDefault();
@@ -42,48 +46,6 @@ $(function() {
     }
   });
 });
-
-function startAnimation() {
-  // Move R over
-  setTimeout(function() {
-    $('.first').addClass('move');
-  }, 250);
-
-  // Fade in "adi"
-  $('.first').onAnimationEnd(function() {
-    $('.middle').addClass('animated fadeIn').removeClass('invisible');
-  });
-
-  // Fade out everything
-  $('.middle').onAnimationEnd(function() {
-    setTimeout(function() {
-      $('.splash').addClass('fadeOut animated');
-    }, 250);
-  });
-  
-  // Fade in content
-  $('.splash').onAnimationEnd(function() {
-    $(this).remove();
-    $('.content').removeClass('hide').addClass('fadeIn animated');
-    sizeQueue();
-  });
-
-}
-
-function loadWebSockets() {
-  if (window["WebSocket"]) {
-    conn = new WebSocket("ws://" + host + "/ws");
-    conn.onclose = function(evt) {
-      // Something
-    }
-    conn.onmessage = function(evt) {
-      var queue = $('.queue');
-      queue.load('/queue', sizeQueue);
-    }
-  } else {
-    // You ain't got WebSockets, brah
-  }
-}
 
 function sizeQueue() {
   var sum = 10;

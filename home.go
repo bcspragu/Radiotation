@@ -1,20 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
+
+	"appengine"
 )
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	data := struct {
-		Host  string
-		Queue *Queue
+		Host string
 	}{
 		r.Host,
-		FindQueue(r),
 	}
 	err := templates.ExecuteTemplate(w, "home.html", data)
 	if err != nil {
-		fmt.Println(err)
+		serveError(appengine.NewContext(r), w, err)
 	}
 }
