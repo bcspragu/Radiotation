@@ -52,7 +52,7 @@ func (t *Track) ArtistList() string {
 }
 
 func (t *Track) InQueue(q Queue) bool {
-	for _, track := range q.Tracks {
+	for _, track := range q.Tracks[q.Offset:] {
 		if track.ID == t.ID {
 			return true
 		}

@@ -31,7 +31,7 @@ type TrackResponse struct {
 }
 
 func (q *Queue) Enqueue(newTrack Track) error {
-	for _, track := range q.Tracks {
+	for _, track := range q.Tracks[q.Offset:] {
 		if track.ID == newTrack.ID {
 			return errors.New("Track is already in your queue, relax")
 		}
