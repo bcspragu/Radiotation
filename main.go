@@ -20,6 +20,13 @@ var rooms = make(map[string]*Room)
 
 var templates = template.Must(template.ParseGlob("templates/*.html"))
 
+func init() {
+	rooms["TCA"] = &Room{
+		Name:   "TCA",
+		Queues: []*Queue{},
+	}
+}
+
 func main() {
 	flag.Parse()
 	dev = *env == "development"
@@ -36,6 +43,7 @@ func main() {
 	r.HandleFunc("/rooms/{key}/remove", withLogin(withRoom(removeFromQueue))).Methods("POST")
 	r.HandleFunc("/rooms/{key}/pop", withRoom(serveSong)).Methods("GET")
 	r.HandleFunc("/rooms/{key}/ws", withLogin(withRoom(serveWs))).Methods("GET")
+	r.HandleFunc("/pop", withLogin(servePop)).Methods("GET")
 
 	// In production, static assets are served by nginx
 	if dev {
@@ -49,4 +57,9 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+
+func servePop(w http.ResponseWriter, r *http.Request) {
+	room := rooms["TCA"]
+	serveSong(w, r, room)
 }
