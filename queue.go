@@ -117,7 +117,9 @@ func serveSong(w http.ResponseWriter, r *http.Request, room *Room) {
 	if room.HasTracks() {
 		q, t := room.PopTrack()
 		data.Track = t
-		h.connections[room.Name+"-"+q.ID].send <- []byte{}
+		if c, ok := h.connections[room.Name+"-"+q.ID]; ok {
+			c.send <- []byte{}
+		}
 		respString, _ := json.Marshal(data)
 		fmt.Fprint(w, string(respString))
 	} else {
