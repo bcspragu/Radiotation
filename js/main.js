@@ -1,6 +1,9 @@
 var conn;
 
 $(function() {
+  setTimeout(sizeQueue, 10);
+  loadWebSockets();
+
   $('.room-form').submit(function(e) {
     var form = $(this);
     var room = form.find('.room-name').val();
@@ -12,7 +15,7 @@ $(function() {
     e.preventDefault();
     var form = $(this);
     var res = $('.results');
-    res.load('/search', form.serialize(), function() {
+    res.load(form.attr('action'), form.serialize(), function() {
       res.removeClass('hide').addClass('fadeIn animated');
     });
   });
@@ -20,30 +23,28 @@ $(function() {
   $('.results').on('click', '.add a', function(e) {
     e.preventDefault();
     var icon = $(this).find('.glyphicon');
-    if (icon.hasClass('glyphicon-plus')) {
-      var form = $(this).parents('form');
-      $.post("/add", form.serialize(), function(data) {
-        if (data.Error) {
-          alert(data.Message);
-        } else {
-          form.find('.glyphicon').removeClass('glyphicon-plus').addClass('glyphicon-ok');
-          var queue = $('.queue');
-          queue.load('/queue', sizeQueue);
-        }
-      });
-    } else {
-      var form = $(this).parents('form');
-      $.post("/remove", form.serialize(), function(data) {
-        if (data.Error) {
-          alert(data.Message);
-        } else {
-          form.find('.glyphicon').removeClass('glyphicon-ok').addClass('glyphicon-plus');
-          var queue = $('.queue');
-          queue.load('/queue', sizeQueue);
-        }
-      });
+    var form = $(this).parents('form');
 
+    var sucFunc = function(form, room) {
+      form.find('.glyphicon').removeClass('glyphicon-plus').addClass('glyphicon-ok');
+      form.attr('action', '/rooms/' + room + '/remove');
     }
+    if (!icon.hasClass('glyphicon-plus')) {
+      sucFunc = function(form, room) {
+        form.find('.glyphicon').removeClass('glyphicon-ok').addClass('glyphicon-plus');
+        form.attr('action', '/rooms/' + room + '/add');
+      }
+    }
+
+    $.post(form.attr('action'), form.serialize(), function(data) {
+      if (data.Error) {
+        alert(data.Message);
+      } else {
+        var room = $('.room-name').val();
+        sucFunc(form, room);
+        $('.queue').load('/rooms/' + room + '/queue', sizeQueue);
+      }
+    });
   });
 });
 
@@ -57,6 +58,23 @@ function sizeQueue() {
     $(".queue").css('width', sum);
   } else {
     $(".queue").css('width', '');
+  }
+}
+
+function loadWebSockets() {
+  var room = $('.room-name');
+  if (window["WebSocket"] && room.length > 0) {
+    var name = room.val()
+    conn = new WebSocket("ws://" + host + "/rooms/" + name + "/ws");
+    conn.onclose = function(evt) {
+      // Something
+    }
+    conn.onmessage = function(evt) {
+      var room = $('.room-name').val();
+      $('.queue').load('/rooms/' + room + '/queue', sizeQueue);
+    }
+  } else {
+    // You ain't got WebSockets, brah
   }
 }
 

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -10,13 +9,15 @@ func serveSearch(w http.ResponseWriter, r *http.Request, room *Room) {
 		Host   string
 		Tracks []Track
 		Queue  *Queue
+		Room   *Room
 	}{
 		r.Host,
 		searchTrack(r.FormValue("search")),
 		room.Queue(userID(r)),
+		room,
 	}
 	err := templates.ExecuteTemplate(w, "search.html", data)
 	if err != nil {
-		fmt.Println(err)
+		serveError(w, err)
 	}
 }

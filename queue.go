@@ -70,11 +70,11 @@ func addToQueue(w http.ResponseWriter, r *http.Request, room *Room) {
 
 	data := QueueResponse{}
 	err := queue.Enqueue(track)
-
 	if err != nil {
 		data.Error = true
 		data.Message = err.Error()
 	}
+
 	respString, _ := json.Marshal(data)
 	fmt.Fprint(w, string(respString))
 }
@@ -115,8 +115,9 @@ func serveSong(w http.ResponseWriter, r *http.Request, room *Room) {
 
 	data := TrackResponse{}
 	if room.HasTracks() {
-		data.Track = room.PopTrack()
-		// TODO(bsprague): Use channels to alert people the song is changing
+		q, t := room.PopTrack()
+		data.Track = t
+		h.connections[room.Name+"-"+q.ID].send <- []byte{}
 		respString, _ := json.Marshal(data)
 		fmt.Fprint(w, string(respString))
 	} else {
@@ -128,7 +129,7 @@ func serveSong(w http.ResponseWriter, r *http.Request, room *Room) {
 }
 
 func (q *Queue) HasTracks() bool {
-	return len(q.Tracks) >= q.Offset
+	return len(q.Tracks) > q.Offset
 }
 
 func (q *Queue) TrackCount() int {

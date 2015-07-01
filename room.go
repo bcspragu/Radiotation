@@ -3,9 +3,6 @@ package main
 import (
 	"net/http"
 
-	"appengine"
-	"appengine/datastore"
-
 	"github.com/gorilla/mux"
 )
 
@@ -42,18 +39,34 @@ func (r *Room) HasTracks() bool {
 	return false
 }
 
-func (r *Room) PopTrack() Track {
+func (r *Room) PopTrack() (*Queue, Track) {
 	c := 0
 	for c < len(r.Queues) {
 		queue := r.Queues[(c+r.Offset)%len(r.Queues)]
 		if queue.HasTracks() {
 			track := queue.PopTrack()
 			r.Offset = (c + r.Offset + 1) % len(r.Queues)
-			return track
+			return queue, track
 		}
 		c++
 	}
-	return Track{}
+	return nil, Track{}
+}
+
+func createRoom(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	roomName := vars["key"]
+	room := Room{
+		Name:   roomName,
+		Queues: []*Queue{},
+	}
+
+	if _, ok := rooms[roomName]; !ok {
+		// Add the new room
+		rooms[roomName] = &room
+	}
+
+	http.Redirect(w, r, "/rooms/"+roomName, 302)
 }
 
 func serveRoom(w http.ResponseWriter, req *http.Request, r *Room) {
@@ -69,47 +82,30 @@ func serveRoom(w http.ResponseWriter, req *http.Request, r *Room) {
 		}
 		err := templates.ExecuteTemplate(w, "new_room.html", data)
 		if err != nil {
-			serveError(appengine.NewContext(req), w, err)
+			serveError(w, err)
+			return
 		}
 	} else {
+
+		uID := userID(req)
+		queue := r.Queue(uID)
+
+		if queue == nil {
+			queue = r.NewQueue(uID)
+		}
+
 		data := struct {
 			Room  *Room
 			Queue *Queue
 			Host  string
 		}{
 			r,
-			r.Queue(userID(req)),
+			queue,
 			req.Host,
 		}
 		err := templates.ExecuteTemplate(w, "room.html", data)
 		if err != nil {
-			serveError(appengine.NewContext(req), w, err)
+			serveError(w, err)
 		}
 	}
-}
-
-func createRoom(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-
-	vars := mux.Vars(r)
-	roomName := vars["key"]
-	room := Room{
-		Name:   roomName,
-		Queues: []*Queue{},
-	}
-
-	key := datastore.NewKey(c, "Room", roomName, 0, roomKey(c))
-	var z *Room
-	err := datastore.Get(c, key, z)
-
-	// Only create if it doesn't exist
-	if err == datastore.ErrNoSuchEntity {
-		_, err := datastore.Put(c, key, &room)
-		if err != nil {
-			serveError(c, w, err)
-			return
-		}
-	}
-
-	http.Redirect(w, r, "/rooms/"+roomName, 302)
 }

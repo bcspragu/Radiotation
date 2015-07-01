@@ -9,56 +9,6 @@ html, body {
   transform-style: preserve-3d;
 }
 
-.splash {
-  position: absolute;
-  text-align: center;
-  top: 50%;
-  margin-top: -10px;
-  transform: translateY(-50%);
-  width: 100%;
-}
-
-.splash span {
-  font-size: 100px;
-}
-
-.splash > .middle.invisible {
-  visibility: hidden;
-}
-
-.splash > .first {
-  margin-right: -150px;
-  -webkit-animation-duration: 0.5s;
-          animation-duration: 0.5s;
-  -webkit-animation-fill-mode: both;
-          animation-fill-mode: both;
-}
-
-.splash > .first.move {
-  -webkit-animation-name: slideOver;
-          animation-name: slideOver;
-}
-
-@-webkit-keyframes slideOver {
-  from {
-    margin-right: -150px;
-  }
-
-  to {
-    margin-right: 0;
-  }
-}
-
-@keyframes slideOver {
-  from {
-    margin-right: 150px;
-  }
-
-  to {
-    margin-right: 0;
-  }
-}
-
 .track h1 {
   margin-top: 0;
   font-size: 30px
@@ -76,6 +26,10 @@ html, body {
 
 .queue-holder {
   overflow-x: auto;
+}
+
+.queue-track.played {
+  opacity: 0.2;
 }
 
 .queue-track {
