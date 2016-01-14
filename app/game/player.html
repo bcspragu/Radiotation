@@ -1,0 +1,14 @@
+<div layout="row" layout-align="center">
+  <md-button title="This is you" aria-label="This is you" ng-show="player.ID == me.ID" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="you"></md-icon></md-button>
+  <md-button title="Waiting for the next round to start" aria-label="Waiting for the next round to start" ng-show="!player.InRound && !eliminated[player.ID]" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="waiting"></md-icon></md-button>
+  <md-button title="Small Blind" aria-label="Small Blind" ng-show="player.ID == smallBlind" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="small-blind"></md-icon></md-button>
+  <md-button title="Large Blind" aria-label="Large Blind" ng-show="player.ID == largeBlind" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="large-blind"></md-icon></md-button>
+  <md-button title="It's their turn, they're thinking" aria-label="It's their turn, they're thinking" ng-show="player.ID == activePlayer" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="thinking"></md-icon></md-button>
+  <md-button title="They folded" aria-label="They folded" ng-show="player.Folded" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="folded"></md-icon></md-button>
+  <md-button title="They were eliminated" aria-label="They were eliminated" ng-show="eliminated[player.ID]" class="md-icon-button" ng-disabled="true"><md-icon md-svg-icon="dead"></md-icon></md-button>
+</div>
+<div flex class="player-image bg-image" ng-style="{'background-image':'url({{player.Image}})'}"></div>
+<div layout="row" layout-align="space-around center" class="player-money">
+  <div flex>${{player.Pot}} in Turn</div>
+  <div flex>${{player.Money}} in Wallet</div>
+</div>

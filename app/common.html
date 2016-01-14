@@ -1,0 +1,59 @@
+[[ define "header" ]]
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html lang="en" ng-app="DrinkEm" class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html lang="en" ng-app="DrinkEm" class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html lang="en" ng-app="DrinkEm" class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html lang="en" ng-app="DrinkEm" class="no-js"> <!--<![endif]-->
+  <head>
+    <meta charset="utf-8" />
+    <title>Radiotation</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/bower_components/html5-boilerplate/dist/css/normalize.css">
+    <link rel="stylesheet" href="/bower_components/html5-boilerplate/dist/css/main.css">
+    [[ if .Dev ]]
+      <link rel="stylesheet" href="/bower_components/angular-material/angular-material.css">
+    [[ else ]]
+      <link rel="stylesheet" href="/bower_components/angular-material/angular-material.min.css">
+    [[ end ]]
+    <link rel="stylesheet" href="/app/app.css">
+    <script src="/bower_components/html5-boilerplate/dist/js/vendor/modernizr-2.8.3.min.js"></script>
+    <style>
+      [ng\:cloak], [ng-cloak], .ng-cloak {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!--[if lt IE 7]>
+      <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+    <![endif]-->
+[[ end ]]
+
+[[ define "scripts" ]]
+  <script src="/js/gopher.js"></script>
+  <script>
+    var host = '[[ .Host ]]';
+  </script>
+  [[ if .Dev ]]
+    <script src="/bower_components/jquery/dist/jquery.js"></script>
+    <script src="/bower_components/angular/angular.js"></script>
+    <script src="/bower_components/angular-websocket/angular-websocket.js"></script>
+    <script src="/bower_components/angular-aria/angular-aria.js"></script>
+    <script src="/bower_components/angular-animate/angular-animate.js"></script>
+    <script src="/bower_components/angular-material/angular-material.js"></script>
+  [[ else ]]
+    <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="/bower_components/angular/angular.min.js"></script>
+    <script src="/bower_components/angular-websocket/angular-websocket.min.js"></script>
+    <script src="/bower_components/angular-aria/angular-aria.min.js"></script>
+    <script src="/bower_components/angular-animate/angular-animate.min.js"></script>
+    <script src="/bower_components/angular-material/angular-material.min.js"></script>
+  [[ end]]
+  <script src="/app/app.js"></script>
+[[ end ]]
+
+[[ define "footer" ]]
+  </body>
+</html>
+[[ end ]]

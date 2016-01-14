@@ -1,0 +1,21 @@
+[[ define "queue" ]]
+  [[ if .Queue ]]
+    [[ $q := .Queue ]]
+    [[ range $i, $track := .Queue.Tracks ]]
+    [[ if lt $i $q.Offset ]]
+      <div class="queue-track played">
+    [[ else ]]
+      <div class="queue-track">
+    [[ end ]]
+        <div href="#" class="thumbnail">
+          <img src="[[ $track.Album.Image ]]" alt="[[ $track.Album.Name ]]">
+        </div>
+        <div class="track-info">
+          <p>[[ $track.Name ]]</p>
+          <p>[[ $track.ArtistList ]]</p>
+        </div>
+      </div>
+    [[ end ]]
+  [[ end ]]
+[[ end ]]
+[[ template "queue" .]]

@@ -1,4 +1,7 @@
-project
+gin-bin
+node_modules
 blockKey
 hashKey
-db/config.json
+logins.json
+bower_components
+js/gopher.js*

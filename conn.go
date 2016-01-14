@@ -1,14 +1,10 @@
-// Copyright 2013 The Gorilla WebSocket Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package main
 
 import (
-	"github.com/gorilla/websocket"
-	"log"
-	"net/http"
+	"room"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -38,7 +34,7 @@ type connection struct {
 	// Buffered channel of outbound messages.
 	send chan []byte
 
-	loginID string
+	user *room.User
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -90,20 +86,16 @@ func (c *connection) writePump() {
 	}
 }
 
-// serverWs handles websocket requests from the peer.
-func serveWs(w http.ResponseWriter, r *http.Request, room *Room) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", 405)
-		return
-	}
-	login := room.Name + "-" + userID(r)
-	ws, err := upgrader.Upgrade(w, r, nil)
+// serveData handles websocket requests from the peer trying to connect
+func serveData(c Context) {
+	ws, err := upgrader.Upgrade(c.w, c.r, nil)
 	if err != nil {
-		log.Println(err)
+		serveError(c.w, err)
 		return
 	}
-	c := &connection{send: make(chan []byte, 256), ws: ws, loginID: login}
-	h.register <- c
-	go c.writePump()
-	c.readPump()
+
+	conn := &connection{send: make(chan []byte, 256), ws: ws, user: c.User}
+	h.register <- conn
+	go conn.writePump()
+	conn.readPump()
 }

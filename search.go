@@ -1,23 +1,19 @@
 package main
 
 import (
-	"net/http"
+	"spotify"
 )
 
-func serveSearch(w http.ResponseWriter, r *http.Request, room *Room) {
-	data := struct {
-		Host   string
-		Tracks []Track
-		Queue  *Queue
-		Room   *Room
-	}{
-		r.Host,
-		searchTrack(r.FormValue("search")),
-		room.Queue(userID(r)),
-		room,
+func serveSearch(c Context) {
+	data := allData{
+		"Host":   c.r.Host,
+		"Tracks": spotify.SearchTrack(c.r.FormValue("search")),
+		"Queue":  c.Queue,
+		"Room":   c.Room,
 	}
-	err := templates.ExecuteTemplate(w, "search.html", data)
+
+	err := templates.ExecuteTemplate(c, "search.html", data)
 	if err != nil {
-		serveError(w, err)
+		serveError(c.w, err)
 	}
 }

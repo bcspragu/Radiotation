@@ -1,0 +1,89 @@
+<div ng-cloak class="main-content" layout="column" ng-controller="GameCtrl as game">
+  <div ng-if="endgame == null" flex="10" class="md-padding status-holder" layout="row" layout-align="center center">
+     <div flex class="status" ng-show="started && !gameover">${{pot}} in Pot</div>
+     <div flex class="status" ng-show="me.ID == activePlayerID && toPlay > 0 && !gameover">Put in ${{toPlay}} to stay in</div>
+     <div flex class="status" ng-show="me.ID == activePlayerID && toPlay == 0 && !gameover">Your Turn</div>
+     <div flex class="status" ng-show="me.ID != activePlayerID && !gameover">Waiting on {{started ? activePlayer.Name : 'Brandon to start this thang'}}</div>
+     <div flex class="status" ng-show="gameover">Game over, hopefully everyone is thoroughly shitfaced</div>
+  </div>
+  <div ng-if="endgame == null" slide="activePlayerID" layout="row" flex="25" layout-align="space-between" class="player-holder md-padding">
+    <player flex 
+            ng-repeat="player in players"
+            ng-class="{loggedin: player.LoggedIn, 'player-{{player.ID}}': true}"
+            class="player"
+            layout="column"
+            layout-align="center"
+            player="player"
+            me="me"
+            eliminated="eliminated"
+            small-blind="smallBlindID"
+            large-blind="largeBlindID"
+            active-player="activePlayerID">
+      </player>
+  </div>
+  <div ng-if="endgame == null" flex="35" layout="row" layout-align="center" class="md-padding community-holder">
+    <div flex
+      class="bg-image"
+      ng-repeat="card in community"
+      ng-style="{'background-image':'url({{card}})'}"></div>
+  </div>
+  <div ng-if="endgame == null" flex="30" layout="row">
+    <div flex="30" class="event-holder md-padding">
+      <div ng-repeat="event in events track by $index" class="event">{{event}}</div>
+    </div>
+    <div flex="40" layout-align="center" layout="column">
+      <div flex layout="row" layout-align="space-between center" class="bet-holder">
+        <md-button aria-label="Decrement bet $25" ng-click="dec(25)" class="big-icon md-icon-button" ng-disabled="me.ID != activePlayerID"><md-icon md-svg-icon="minus"></md-icon></md-button>
+        <md-button aria-label="Decrement bet $5" ng-click="dec(5)" class="md-icon-button" ng-disabled="me.ID != activePlayerID"><md-icon md-svg-icon="minus"></md-icon></md-button>
+        <div flex class="bet">
+          Minimum {{betStr}}: ${{minBet}}
+        </div>
+        <md-button aria-label="Increment bet $5" ng-click="inc(5)"  class="md-icon-button" ng-disabled="me.ID != activePlayerID"><md-icon md-svg-icon="plus"></md-icon></md-button>
+        <md-button aria-label="Increment bet $25" ng-click="inc(25)"  class="big-icon md-icon-button" ng-disabled="me.ID != activePlayerID"><md-icon md-svg-icon="plus"></md-icon></md-button>
+      </div>
+      <div flex layout="column" layout-align="space-between" class="poker-action-buttons">
+        <div flex layout="row">
+          <md-button flex ng-click="placeBet(me.Money-toPlay)" ng-disabled="me.ID != activePlayerID" class="md-raised md-primary">All In</md-button>
+          <md-button flex ng-click="check()" ng-disabled="me.ID != activePlayerID || toPlay > me.Money" class="md-raised md-primary">{{checkStr}}</md-button>
+        </div>
+        <div flex layout="row">
+          <md-button flex ng-click="placeBet(bet)" ng-disabled="me.ID != activePlayerID || (minBet + toPlay) > me.Money" class="md-raised md-primary">{{betStr}} ${{bet}}</md-button>
+          <md-button flex ng-click="fold()" ng-disabled="me.ID != activePlayerID" class="md-raised md-primary">Fold</md-button>
+        </div>
+      </div>
+    </div>
+    <div flex="30" class="md-padding" layout="row" layout-align="center">
+      <div flex
+        class="bg-image"
+        ng-repeat="card in hand"
+        ng-style="{'background-image':'url({{card}})'}"></div>
+    </div>
+  </div>
+  <div flex="70" ng-if="endgame != null" layout="row" class="md-padding">
+    <div flex class="winner md-padding" ng-repeat="eg in endgame" layout="column">
+      <div class="player-money">{{eg.Player.Name}} won {{eg.Winnings == 0 ? 'nothing' : '$' + eg.Winnings}}{{foldOut ? ' because everyone bitched out' : ''}}</div>
+      <div flex="20" class="bg-image" ng-style="{'background-image':'url({{eg.Player.Image}})'}"></div>
+      <div class="player-money" ng-if="!foldOut">{{descs[$index]}}</div>
+      <div flex="20" ng-if="!foldOut" class="md-padding" layout="row">
+        <div flex="20"></div>
+        <div flex
+          class="bg-image"
+          ng-repeat="card in phs[$index]"
+          ng-style="{'background-image':'url({{card}})'}"></div>
+        <div flex="20"></div>
+      </div>
+      <div ng-if="!foldOut" flex="40"
+        class="bg-image md-padding"
+        ng-style="{'background-image':'url({{eg.DrawnCard.Shown && eg.Winnings > 0 ? dc[$index] : '/img/cards/Blank.svg'}})'}"></div>
+      <div ng-if="!foldOut && eg.DrawnCard.Shown && eg.Winnings > 0">{{eg.DrawnCard.Popped ? "You've popped the top, chug your drink!" : "You didn't pop the top, you're safe for now."}}</div>
+    </div>
+  </div>
+  <div class="pop-odds" ng-if="endgame != null && !foldOut" flex="10">Chances of popping the top are {{popprob}}</div>
+  <div flex="25" ng-if="endgame != null" layout="row" class="md-padding">
+    <div flex
+      class="bg-image"
+      ng-repeat="card in community track by $index"
+      ng-style="{'background-image':'url({{card}})'}"></div>
+  </div>
+</div>
+[[ template "scripts" . ]]

@@ -1,0 +1,46 @@
+<div ng-cloak layout="column" layout-align="center center">
+  [[ if .Message ]]
+  <h1 flex>[[.Message]]</h1>
+  [[ end ]]
+  <div layout="row" layout-align="space-between start">
+    <div flex="30" class="md-padding">
+      <h1>Here's how it works</h1>
+      <ol>
+        <li>Log in below.</li>
+        <li>Players have icons indicating stuff about them, hover over them to see what they mean.</li>
+        <li>Each round will begin with a normal round of Texas Hold 'Em, where you can do shit like bet, fold, check, call, and all that other good stuff.</li>
+        <li>The winner(s) of the round will be dealt a card from their hand or the community cards, that becomes their card in Kings (Rules to the right)</li>
+        <li>There's also a chug option that gets more likely every round, you'll know it when you see it.</li>
+        <li>When we're all sick of the game or everyone is out, we stop playing, and the person with the most money/last Airbender&trade; gets $250, cash.</li>
+        <li>If Pat Coffey wins, he gets nothing because he's 2,500 miles away.</li>
+      </ol>
+    </div>
+    <img flex="40" src="/img/logo.jpg" class="texas">
+    <div flex="30" class="md-padding">
+      <h1>Slightly Different than usual Kings Rules</h1>
+      <ul>
+        <li><strong>Ace: Waterfall</strong> Every player begins drinking, and no one can stop until the player before them does</li>
+        <li><strong>2: You</strong> Whoever drew the card assigns a drink</li>
+        <li><strong>3: Me</strong> Whoever drew the card drinks</li>
+        <li><strong>4: Floor</strong> Everyone races to touch the floor, last person to do so drinks</li>
+        <li><strong>5: Guys</strong> All guys drink</li>
+        <li><strong>6: Chicks</strong> Well...uh, we all drink again</li>
+        <li><strong>7: Heaven</strong> All players point towards the sky, last player to do so drinks</li>
+        <li><strong>8: Mate</strong> Pick a person to drink with, there can be chains</li>
+        <li><strong>9: Rhyme</strong> Say a phrase, and everyone else must say phrases that rhyme</li>
+        <li><strong>10: Categories</strong> Pick a category, and say something from that category</li>
+        <li><strong>Jack: Never have I ever</strong> With three fingers, starts with the person who drew the card</li>
+        <li><strong>Queen: Questions</strong> Normal Question Master Shizz</li>
+        <li><strong>King: Ruler</strong> Make a rule that everyone must follow until the next King is drawn</li>
+      </ul>
+    </div>
+  </div>
+  <form method="POST" action="/login" layout="row">
+    <md-input-container class="md-block">
+      <label>Password</label>
+      <input name="password" type="password">
+    </md-input-container>
+    <md-button type="submit" class="md-raised md-primary">Login</md-button>
+  </form>
+</div>
+[[ template "scripts" . ]]

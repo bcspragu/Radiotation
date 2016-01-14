@@ -1,4 +1,4 @@
-package main
+package spotify
 
 import (
 	"encoding/json"
@@ -51,16 +51,7 @@ func (t *Track) ArtistList() string {
 	return strings.Join(names, ", ")
 }
 
-func (t *Track) InQueue(q Queue) bool {
-	for _, track := range q.Tracks[q.Offset:] {
-		if track.ID == t.ID {
-			return true
-		}
-	}
-	return false
-}
-
-func getTrack(trackID string) Track {
+func GetTrack(trackID string) Track {
 	url := fmt.Sprintf("http://api.spotify.com/v1/tracks/%s", url.QueryEscape(trackID))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
@@ -82,7 +73,7 @@ func getTrack(trackID string) Track {
 	return track
 }
 
-func searchTrack(trackName string) []Track {
+func SearchTrack(trackName string) []Track {
 	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", url.QueryEscape(trackName))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
