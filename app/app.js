@@ -12,9 +12,7 @@ $(function() {
 
   $('.search-form').submit(function(e) {
     e.preventDefault();
-    var form = $(this);
-    var res = $('.results');
-    res.load(form.attr('action'), form.serialize());
+    reloadResults();
   });
 
   $('body').on('click', '.add a', function(e) {
@@ -29,14 +27,19 @@ $(function() {
         icon.toggleClass('glyphicon-ok');
         icon.toggleClass('glyphicon-plus');
         $('.queue').load('/rooms/' + room + '/queue');
-
-        var form = $('.search-form');
-        var res = $('.results');
-        res.load(form.attr('action'), form.serialize());
+        reloadResults();
       }
     });
   });
 });
+
+function reloadResults() {
+  var form = $('.search-form');
+  if (form.find('input[name="search"]').val() !== '') {
+    var res = $('.results');
+    res.load(form.attr('action'), form.serialize());
+  }
+}
 
 function loadWebSockets() {
   if (window["WebSocket"] && room !== '') {
@@ -46,10 +49,7 @@ function loadWebSockets() {
     }
     conn.onmessage = function(evt) {
       $('.queue').load('/rooms/' + room + '/queue');
-
-      var form = $('.search-form');
-      var res = $('.results');
-      res.load(form.attr('action'), form.serialize());
+      reloadResults();
     }
   } else {
     // You ain't got WebSockets, brah
