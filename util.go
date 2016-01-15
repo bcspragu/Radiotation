@@ -55,7 +55,6 @@ func withLogin(handler func(c Context)) func(w http.ResponseWriter, r *http.Requ
 					Path:  "/",
 				}
 				http.SetCookie(w, cookie)
-				http.Redirect(w, r, "/", http.StatusFound)
 			} else {
 				log.Println(err)
 			}

@@ -46,6 +46,10 @@ function loadWebSockets() {
     }
     conn.onmessage = function(evt) {
       $('.queue').load('/rooms/' + room + '/queue');
+
+      var form = $('.search-form');
+      var res = $('.results');
+      res.load(form.attr('action'), form.serialize());
     }
   } else {
     // You ain't got WebSockets, brah
