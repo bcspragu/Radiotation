@@ -12,9 +12,11 @@ type User struct {
 type Users []*User
 
 func (u *User) AddQueue(name string) {
-	u.Queues[name] = &Queue{
-		Tracks:   []spotify.Track{},
-		TrackMap: make(map[string]spotify.Track),
+	if u.Queues[name] == nil {
+		u.Queues[name] = &Queue{
+			Tracks:   []spotify.Track{},
+			TrackMap: make(map[string]spotify.Track),
+		}
 	}
 }
 

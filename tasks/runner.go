@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -16,7 +15,7 @@ var stdout io.Reader
 var err error
 
 func main() {
-	gin = exec.Command("gin", "--appPort", "8000", "--port", "8080", "--filetype=go,html", "--exclude=.git,bower_components,node_modules", "--", "--env=production")
+	gin = exec.Command("gin", "--appPort", "8000", "--port", "8080", "--filetype=go,html", "--exclude=.git,bower_components,node_modules", "--", "--env=development")
 
 	ginOut, err := gin.StdoutPipe()
 	if err != nil {
@@ -25,18 +24,6 @@ func main() {
 	if err := gin.Start(); err != nil {
 		log.Fatal(err)
 	}
-
-	gphr := exec.Command("gopherjs", "build", "--watch", "--output=../js/gopher.js")
-	gphr.Dir = "gopher"
-
-	gphrOut, err := gphr.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := gphr.Start(); err != nil {
-		log.Fatal(err)
-	}
-	go io.Copy(os.Stdout, gphrOut)
 
 	go restart()
 

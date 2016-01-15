@@ -11,11 +11,12 @@ type Queue struct {
 	TrackMap map[string]spotify.Track
 }
 
-func (q *Queue) Enqueue(newTrack spotify.Track) error {
+func (q *Queue) AddTrack(newTrack spotify.Track) error {
 	if q.HasTrack(newTrack) {
 		return errors.New("Track is already in your queue, relax")
 	}
 	q.Tracks = append(q.Tracks, newTrack)
+	q.TrackMap[newTrack.ID] = newTrack
 	return nil
 }
 

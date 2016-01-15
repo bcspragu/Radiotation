@@ -41,9 +41,10 @@ func main() {
 	r.HandleFunc("/rooms/{key}/search", withLogin(serveSearch)).Methods("GET")
 	r.HandleFunc("/rooms/{key}/queue", withLogin(serveQueue)).Methods("GET")
 	r.HandleFunc("/rooms/{key}/add", withLogin(addToQueue)).Methods("POST")
-	r.HandleFunc("/rooms/{key}/remove", withLogin(removeFromQueue)).Methods("POST")
 	r.HandleFunc("/rooms/{key}/pop", withLogin(serveSong)).Methods("GET")
 	r.HandleFunc("/rooms/{key}/ws", withLogin(serveData)).Methods("GET")
+
+	http.Handle("/", r)
 
 	var err error
 
@@ -93,35 +94,20 @@ type TrackResponse struct {
 func addToQueue(c Context) {
 	c.w.Header().Set("Content-Type", "application/json")
 
-	songID := c.r.FormValue("id")
-
-	track := spotify.GetTrack(songID)
+	var err error
+	track := spotify.GetTrack(c.r.FormValue("id"))
+	if c.Queue.HasTrack(track) {
+		err = c.Queue.RemoveTrack(track)
+	} else {
+		err = c.Queue.AddTrack(track)
+	}
 
 	data := QueueResponse{}
-	err := c.Queue.Enqueue(track)
 	if err != nil {
 		data.Error = true
 		data.Message = err.Error()
 	}
 
-	respString, _ := json.Marshal(data)
-	fmt.Fprint(c.w, string(respString))
-}
-
-func removeFromQueue(c Context) {
-	c.w.Header().Set("Content-Type", "application/json")
-
-	songID := c.r.FormValue("id")
-
-	track := spotify.GetTrack(songID)
-
-	data := QueueResponse{}
-	err := c.Queue.RemoveTrack(track)
-
-	if err != nil {
-		data.Error = true
-		data.Message = err.Error()
-	}
 	respString, _ := json.Marshal(data)
 	fmt.Fprint(c.w, string(respString))
 }
@@ -129,6 +115,7 @@ func removeFromQueue(c Context) {
 func serveQueue(c Context) {
 	data := allData{
 		"Queue": c.Queue,
+		"Raw":   true,
 	}
 	err := templates.ExecuteTemplate(c, "queue.html", data)
 	if err != nil {
@@ -172,10 +159,8 @@ func createRoom(c Context) {
 func serveRoom(c Context) {
 	if c.Room == nil {
 		// Make the user create it first
-		vars := mux.Vars(c.r)
 		data := allData{
-			"Room": vars["key"],
-			"Host": c.r.Host,
+			"Room": mux.Vars(c.r)["key"],
 		}
 
 		err := templates.ExecuteTemplate(c, "new_room.html", data)

@@ -10,6 +10,7 @@ func serveSearch(c Context) {
 		"Tracks": spotify.SearchTrack(c.r.FormValue("search")),
 		"Queue":  c.Queue,
 		"Room":   c.Room,
+		"Raw":    true,
 	}
 
 	err := templates.ExecuteTemplate(c, "search.html", data)

@@ -14,7 +14,7 @@
         <h2>[[ $track.Album.Name ]]</h2>
       </div>
       <div class="col-xs-2 add col-sm-2">
-        [[ if $track.InQueue $q ]]
+        [[ if $q.HasTrack $track ]]
           <form action="/rooms/[[ $r.Name ]]/remove">
               <a href="#"><span class="glyphicon glyphicon-ok"></span></a>
         [[ else ]]

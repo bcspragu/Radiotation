@@ -12,6 +12,7 @@ import (
 	"room"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 )
 
@@ -66,6 +67,12 @@ func withLogin(handler func(c Context)) func(w http.ResponseWriter, r *http.Requ
 
 		c := NewContext(w, r)
 		c.User = user
+		roomName := mux.Vars(r)["key"]
+		c.Room = rooms[roomName]
+		if c.User != nil && roomName != "" {
+			c.User.AddQueue(roomName)
+			c.Queue = c.User.Queues[roomName]
+		}
 		handler(c)
 	}
 }

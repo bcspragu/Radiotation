@@ -1,106 +1,36 @@
-/* app css stylesheet */
-
-/* Classic SPA */
-html, body, .main-content {
-  width: 100%;
-  height: 100%;
+html, body {
+  max-width: 100%;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
-.forms form {
-  margin-bottom: 20px;
+.page-wrap {
+  display: flex;
+  flex-direction: column;
 }
 
-.texas {
-  margin-bottom: -100px;
+.queue-holder {
+  flex: 1;
 }
 
-.bg-image {
-  background-repeat: no-repeat;
-  background-size: contain;
-  background-position: center;
-}
-
-.event-holder {
-  min-height: 100%;
-  margin-right: 24px;
+.queue {
+  display: flex;
+  flex-direction: row;
   overflow: auto;
 }
 
-.player-image {
-  min-height: 64px;
-}
-
-.player-image-big {
-  min-height: 256px;
-}
-
-.player {
+.queue-track {
+  width: 150px;
+  min-width: 150px;
   text-align: center;
-  opacity: 0.2;
-  min-width: 256px;
+  margin: 0 10px;
 }
 
-.winner {
-  text-align: center;
-  border: 1px solid black;
+.queue-track img {
+  height: 100px;
 }
 
-.community-holder {
-  min-height: 256px;
-}
-
-.player-holder {
-  min-height: 256px;
-  width: 100%;
-  overflow: auto;
-}
-
-.player.loggedin {
-  opacity: 1;
-}
-
-.poker-action-buttons .md-button {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.player-money {
-  font-size: 18px;
-}
-
-.player-winnings {
-  font-size: 24px;
-}
-
-.player > md-chips > md-chips-wrap {
-  box-shadow: none;
-}
-
-.bet {
-  font-size: 24px;
-}
-
-.status-holder, .pop-odds {
-  text-align: center;
-}
-
-.status { 
-  font-size: 36px;
-  margin: 0;
-}
-
-.bet-holder {
-  text-align: center;
-}
-
-.bet-holder button.big-icon {
-  width: 72px;
-  height: 72px;
-}
-
-.bet-holder button.big-icon md-icon {
-  width: 48px;
-  height: 48px;
+.jumbotron {
+  flex: 1;
 }

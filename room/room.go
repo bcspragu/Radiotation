@@ -18,10 +18,25 @@ func New(name string) *Room {
 }
 
 func (r *Room) AddUser(user *User) {
+
+	for _, u := range r.Users {
+		if u.ID == user.ID {
+			return
+		}
+	}
+
+	// Add a user at the end of the queue
+	if len(r.Users) > 0 {
+		i := (r.Offset + len(r.Users) - 1) % len(r.Users)
+		r.Users = append(r.Users, nil)
+		copy(r.Users[i+1:], r.Users[i:])
+		r.Users[i] = user
+	} else {
+		r.Users = append(r.Users, user)
+	}
+
 	// Add a queue for this room
 	user.AddQueue(r.Name)
-	// TODO: Maybe don't append, insert somewhere, furthest?
-	r.Users = append(r.Users, user)
 }
 
 func (r *Room) HasTracks() bool {
