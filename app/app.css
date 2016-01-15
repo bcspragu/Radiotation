@@ -10,6 +10,10 @@ html, body {
   flex-direction: column;
 }
 
+.played {
+  opacity: 0.2
+}
+
 .queue-holder {
   flex: 1;
 }
@@ -20,11 +24,55 @@ html, body {
   overflow: auto;
 }
 
+.results {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.album-art {
+  background-size: cover;
+  display: flex;
+}
+
+.album-art form {
+  flex: 1;
+  align-self: center;
+}
+
+.search-track .album-art {
+  min-height: 200px;
+}
+
+.search-track .album-art form {
+  font-size: 72px;
+}
+
+.queue-track .album-art {
+  min-height: 150px;
+}
+
+.queue-track .album-art form {
+  font-size: 48px;
+}
+
+.search-track {
+  width: 200px;
+  min-width: 200px;
+  text-align: center;
+  margin: 0 10px;
+}
+
 .queue-track {
   width: 150px;
   min-width: 150px;
   text-align: center;
   margin: 0 10px;
+}
+
+.queue-track img {
+  height: 100px;
 }
 
 .queue-track img {

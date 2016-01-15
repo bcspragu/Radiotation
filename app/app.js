@@ -14,20 +14,25 @@ $(function() {
     e.preventDefault();
     var form = $(this);
     var res = $('.results');
-    res.load(form.attr('action'), form.serialize(), function() {
-      res.removeClass('hide').addClass('fadeIn animated');
-    });
+    res.load(form.attr('action'), form.serialize());
   });
 
-  $('.results').on('click', '.add a', function(e) {
+  $('body').on('click', '.add a', function(e) {
     e.preventDefault();
 
     var form = $(this).parents('form');
+    var icon = $(this).find('.glyphicon');
     $.post(form.attr('action'), form.serialize(), function(data) {
       if (data.Error) {
         alert(data.Message);
       } else {
+        icon.toggleClass('glyphicon-ok');
+        icon.toggleClass('glyphicon-plus');
         $('.queue').load('/rooms/' + room + '/queue');
+
+        var form = $('.search-form');
+        var res = $('.results');
+        res.load(form.attr('action'), form.serialize());
       }
     });
   });

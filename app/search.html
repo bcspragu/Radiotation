@@ -2,27 +2,22 @@
 [[ $r := .Room ]]
 [[ if .Tracks ]]
   [[ range $i, $track := .Tracks ]]
-    <div class="row track">
-      <div class="col-sm-1 col-xs-3">
-        <div href="#" class="thumbnail">
-          <img src="[[ $track.Album.Image ]]" alt="[[ $track.Album.Name ]]">
+    <div class="search-track">
+      <div href="#" class="thumbnail">
+        <div class="album-art" style="background-image:url([[ $track.Album.Image ]])" alt="[[ $track.Album.Name ]]">
+          <form class="add" action="/rooms/[[ $r.Name ]]/add">
+            [[ if $q.HasTrack $track ]]
+              <a href="#"><span class="glyphicon glyphicon-ok"></span></a>
+            [[ else ]]
+              <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
+            [[ end ]]
+            <input type="hidden" name="id" value="[[ $track.ID ]]"/>
+          </form>
         </div>
       </div>
-      <div class="col-xs-6 col-sm-9">
-        <h1>[[ $track.Name ]]</h1>
-        <h2>[[ $track.ArtistList ]]</h2>
-        <h2>[[ $track.Album.Name ]]</h2>
-      </div>
-      <div class="col-xs-2 add col-sm-2">
-        [[ if $q.HasTrack $track ]]
-          <form action="/rooms/[[ $r.Name ]]/remove">
-              <a href="#"><span class="glyphicon glyphicon-ok"></span></a>
-        [[ else ]]
-          <form action="/rooms/[[ $r.Name ]]/add">
-            <a href="#"><span class="glyphicon glyphicon-plus"></span></a>
-        [[ end ]]
-          <input type="hidden" name="id" value="[[ $track.ID ]]"/>
-        </form>
+      <div class="track-info">
+        <p>[[ $track.Name ]]</p>
+        <p>[[ $track.ArtistList ]]</p>
       </div>
     </div>
   [[ end ]]

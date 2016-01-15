@@ -124,16 +124,20 @@ func serveQueue(c Context) {
 }
 
 func serveSong(c Context) {
+	fmt.Println(c.Room.Name)
+	fmt.Println(len(c.User.Queues))
+	for x, q := range c.User.Queues {
+		fmt.Println(x, ":", len(q.Tracks))
+	}
 	c.w.Header().Set("Content-Type", "application/json")
 
 	data := TrackResponse{}
 	if c.Room.HasTracks() {
-		_, t := c.Room.PopTrack()
+		u, t := c.Room.PopTrack()
 		data.Track = t
-		// TODO FIx This
-		//if c, ok := h.connections[c.User.ID]; ok {
-		//c.send <- []byte{}
-		//}
+		if c, ok := h.userconns[u]; ok {
+			c.send <- []byte{}
+		}
 		respString, _ := json.Marshal(data)
 		fmt.Fprint(c.w, string(respString))
 	} else {
@@ -160,7 +164,7 @@ func serveRoom(c Context) {
 	if c.Room == nil {
 		// Make the user create it first
 		data := allData{
-			"Room": mux.Vars(c.r)["key"],
+			"Room": &room.Room{Name: mux.Vars(c.r)["key"]},
 		}
 
 		err := templates.ExecuteTemplate(c, "new_room.html", data)

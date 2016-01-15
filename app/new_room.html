@@ -1,10 +1,10 @@
 <div class="container-fluid content">
   <div class="jumbotron">
-    <h1 class="text-center">Room "[[ .Room ]]" doesn't exist yet, want to make it?</h1>
-    <form class="form-horizontal create-form" method="POST" action="/rooms/[[ .Room ]]/create">
+    <h1 class="text-center">Room "[[ .Room.Name ]]" doesn't exist yet, want to make it?</h1>
+    <form class="form-horizontal create-form" method="POST" action="/rooms/[[ .Room.Name ]]/create">
       <div class="form-group">
         <div class="col-sm-12">
-          <button type="submit" class="btn btn-primary btn-block create-room">Create Room [[ .Room ]]</button>
+          <button type="submit" class="btn btn-primary btn-block create-room">Create Room [[ .Room.Name ]]</button>
         </div>
       </div>
     </form>

@@ -1,14 +1,18 @@
 [[ define "queue" ]]
   [[ if .Queue ]]
     [[ $q := .Queue ]]
+    [[ $r := .Room ]]
     [[ range $i, $track := .Queue.Tracks ]]
-    [[ if lt $i $q.Offset ]]
-      <div class="queue-track played">
-    [[ else ]]
-      <div class="queue-track">
-    [[ end ]]
+      <div class="queue-track[[if lt $i $q.Offset]] played [[end]]">
         <div href="#" class="thumbnail">
-          <img src="[[ $track.Album.Image ]]" alt="[[ $track.Album.Name ]]">
+          <div class="album-art" style="background-image:url([[ $track.Album.Image ]])" alt="[[ $track.Album.Name ]]">
+            [[if ge $i $q.Offset]]
+            <form class="add" action="/rooms/[[ $r.Name ]]/add">
+              <a href="#"><span class="glyphicon glyphicon-remove"></span></a>
+              <input type="hidden" name="id" value="[[ $track.ID ]]"/>
+            </form>
+            [[ end ]]
+          </div>
         </div>
         <div class="track-info">
           <p>[[ $track.Name ]]</p>

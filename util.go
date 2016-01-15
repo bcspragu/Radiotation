@@ -69,8 +69,8 @@ func withLogin(handler func(c Context)) func(w http.ResponseWriter, r *http.Requ
 		c.User = user
 		roomName := mux.Vars(r)["key"]
 		c.Room = rooms[roomName]
-		if c.User != nil && roomName != "" {
-			c.User.AddQueue(roomName)
+		if c.User != nil && c.Room != nil {
+			c.Room.AddUser(c.User)
 			c.Queue = c.User.Queues[roomName]
 		}
 		handler(c)

@@ -48,7 +48,7 @@ func (r *Room) HasTracks() bool {
 	return false
 }
 
-func (r *Room) PopTrack() (*Queue, spotify.Track) {
+func (r *Room) PopTrack() (*User, spotify.Track) {
 	c := 0
 	for c < len(r.Users) {
 		user := r.Users[(c+r.Offset)%len(r.Users)]
@@ -56,7 +56,7 @@ func (r *Room) PopTrack() (*Queue, spotify.Track) {
 		if queue.HasTracks() {
 			track := queue.NextTrack()
 			r.Offset = (c + r.Offset + 1) % len(r.Users)
-			return queue, track
+			return user, track
 		}
 		c++
 	}
