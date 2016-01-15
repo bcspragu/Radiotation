@@ -1,6 +1,7 @@
 package room
 
 import (
+	"math/rand"
 	"spotify"
 )
 
@@ -50,12 +51,14 @@ func (r *Room) HasTracks() bool {
 
 func (r *Room) PopTrack() (*User, spotify.Track) {
 	c := 0
+	ind := rand.Perm(len(r.Users))
 	for c < len(r.Users) {
-		user := r.Users[(c+r.Offset)%len(r.Users)]
+		user := r.Users[ind[c]]
+		//user := r.Users[(c+r.Offset)%len(r.Users)]
 		queue := user.Queues[r.Name]
 		if queue.HasTracks() {
 			track := queue.NextTrack()
-			r.Offset = (c + r.Offset + 1) % len(r.Users)
+			//r.Offset = (c + r.Offset + 1) % len(r.Users)
 			return user, track
 		}
 		c++
