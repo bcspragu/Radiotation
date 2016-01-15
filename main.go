@@ -124,11 +124,6 @@ func serveQueue(c Context) {
 }
 
 func serveSong(c Context) {
-	fmt.Println(c.Room.Name)
-	fmt.Println(len(c.User.Queues))
-	for x, q := range c.User.Queues {
-		fmt.Println(x, ":", len(q.Tracks))
-	}
 	c.w.Header().Set("Content-Type", "application/json")
 
 	data := TrackResponse{}
