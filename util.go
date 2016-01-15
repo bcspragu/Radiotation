@@ -27,13 +27,11 @@ func withLogin(handler func(c Context)) func(w http.ResponseWriter, r *http.Requ
 			value := struct {
 				ID string
 			}{}
-			if err = s.Decode("login", cookie.Value, &value); err != nil {
-				serveError(w, err)
-				return
-			}
-			// If we're here, we've decoded it
-			if u, ok := users[value.ID]; ok {
-				user = u
+			if err = s.Decode("login", cookie.Value, &value); err == nil {
+				// If we're here, we've decoded it
+				if u, ok := users[value.ID]; ok {
+					user = u
+				}
 			}
 		}
 
