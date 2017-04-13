@@ -1,8 +1,6 @@
 package room
 
-import (
-	"spotify"
-)
+import "github.com/bcspragu/Radiotation/music"
 
 type User struct {
 	ID     string
@@ -14,8 +12,8 @@ type Users []*User
 func (u *User) AddQueue(name string) {
 	if u.Queues[name] == nil {
 		u.Queues[name] = &Queue{
-			Tracks:   []spotify.Track{},
-			TrackMap: make(map[string]spotify.Track),
+			Tracks:   []music.Track{},
+			TrackMap: make(map[string]music.Track),
 		}
 	}
 }

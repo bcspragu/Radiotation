@@ -1,7 +1,7 @@
 package main
 
 import (
-	"room"
+	"github.com/bcspragu/Radiotation/room"
 )
 
 // hub maintains the set of active connections and broadcasts messages to the

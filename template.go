@@ -2,7 +2,8 @@ package main
 
 import (
 	"html/template"
-	"room"
+
+	"github.com/bcspragu/Radiotation/room"
 )
 
 type RadioTemplate struct {

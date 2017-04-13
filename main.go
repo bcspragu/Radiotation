@@ -7,10 +7,10 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"room"
-	"spotify"
 	"time"
 
+	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/room"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 )
@@ -82,34 +82,41 @@ type QueueResponse struct {
 type TrackListResponse struct {
 	Error   bool
 	Message string
-	Tracks  []spotify.Track
+	Tracks  []music.Track
 }
 
 type TrackResponse struct {
 	Error   bool
 	Message string
-	Track   spotify.Track
+	Track   music.Track
 }
 
 func addToQueue(c Context) {
 	c.w.Header().Set("Content-Type", "application/json")
 
-	var err error
-	track := spotify.GetTrack(c.r.FormValue("id"))
+	data := QueueResponse{}
+
+	track, err := c.Room.SongServer.Track(c.r.FormValue("id"))
+	if err != nil {
+		data.Error = true
+		data.Message = err.Error()
+		json.NewEncoder(c.w).Encode(data)
+		return
+	}
+
 	if c.Queue.HasTrack(track) {
 		err = c.Queue.RemoveTrack(track)
 	} else {
 		err = c.Queue.AddTrack(track)
 	}
 
-	data := QueueResponse{}
 	if err != nil {
 		data.Error = true
 		data.Message = err.Error()
+		json.NewEncoder(c.w).Encode(data)
+		return
 	}
 
-	respString, _ := json.Marshal(data)
-	fmt.Fprint(c.w, string(respString))
 }
 
 func serveQueue(c Context) {

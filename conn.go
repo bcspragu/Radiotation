@@ -1,9 +1,9 @@
 package main
 
 import (
-	"room"
 	"time"
 
+	"github.com/bcspragu/Radiotation/room"
 	"github.com/gorilla/websocket"
 )
 

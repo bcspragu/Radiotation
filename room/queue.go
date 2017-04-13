@@ -2,16 +2,17 @@ package room
 
 import (
 	"errors"
-	"spotify"
+
+	"github.com/bcspragu/Radiotation/music"
 )
 
 type Queue struct {
 	Offset   int
-	Tracks   []spotify.Track
-	TrackMap map[string]spotify.Track
+	Tracks   []music.Track
+	TrackMap map[string]music.Track
 }
 
-func (q *Queue) AddTrack(newTrack spotify.Track) error {
+func (q *Queue) AddTrack(newTrack music.Track) error {
 	if q.HasTrack(newTrack) {
 		return errors.New("Track is already in your queue, relax")
 	}
@@ -20,7 +21,7 @@ func (q *Queue) AddTrack(newTrack spotify.Track) error {
 	return nil
 }
 
-func (q *Queue) NextTrack() spotify.Track {
+func (q *Queue) NextTrack() music.Track {
 	if q.Offset < len(q.Tracks) {
 		track := q.Tracks[q.Offset]
 		delete(q.TrackMap, track.ID)
@@ -28,10 +29,10 @@ func (q *Queue) NextTrack() spotify.Track {
 		return track
 	}
 	// TODO(bsprague): Probably add errors back
-	return spotify.Track{}
+	return music.Track{}
 }
 
-func (q *Queue) RemoveTrack(delTrack spotify.Track) error {
+func (q *Queue) RemoveTrack(delTrack music.Track) error {
 	for i, track := range q.Tracks {
 		if track.ID == delTrack.ID && i >= q.Offset {
 			q.Tracks = append(q.Tracks[:i], q.Tracks[i+1:]...)
@@ -50,7 +51,7 @@ func (q *Queue) TrackCount() int {
 	return len(q.Tracks)
 }
 
-func (q *Queue) HasTrack(track spotify.Track) bool {
+func (q *Queue) HasTrack(track music.Track) bool {
 	_, ok := q.TrackMap[track.ID]
 	return ok
 }

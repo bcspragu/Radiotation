@@ -6,91 +6,58 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
+
+	"github.com/bcspragu/Radiotation/music"
 )
 
-type SpotifyResponse struct {
-	Tracks Tracks
+type spotifySongServer struct {
+	apiEndpoint string
 }
 
-type Tracks struct {
-	Items []Track
+type spotifyResponse struct {
+	Tracks music.Tracks
 }
 
-type Track struct {
-	Artists []Artist
-	Name    string
-	ID      string
-	Album   Album
-}
-
-type Album struct {
-	Name   string
-	Images []Image
-}
-
-type Artist struct {
-	Name string
-}
-
-type Image struct {
-	Width  int
-	Height int
-	URL    string
-}
-
-func (a *Album) Image() string {
-	return a.Images[0].URL
-}
-
-func (t *Track) ArtistList() string {
-	names := make([]string, len(t.Artists))
-	for i, a := range t.Artists {
-		names[i] = a.Name
+func NewSongServer(apiEndpoint string) music.SongServer {
+	return &spotifySongServer{
+		apiEndpoint: apiEndpoint,
 	}
-	return strings.Join(names, ", ")
 }
 
-func GetTrack(trackID string) Track {
-	url := fmt.Sprintf("http://api.spotify.com/v1/tracks/%s", url.QueryEscape(trackID))
+func (s *spotifySongServer) Track(id string) (music.Track, error) {
+	url := fmt.Sprintf("http://api.spotify.com/v1/tracks/%s", url.QueryEscape(id))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
 	if err != nil {
-		fmt.Println("Error querying Spotify API:", err)
-		return Track{}
+		return music.Track{}, fmt.Errorf("error querying Spotify API: %v", err)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading from Spotify API:", err)
-		return Track{}
+		return music.Track{}, fmt.Errorf("error reading from Spotify API: %v", err)
 	}
-	var track Track
+	var track music.Track
 	err = json.Unmarshal(body, &track)
 	if err != nil {
-		fmt.Println("Error loading data from Spotify API:", err)
-		return Track{}
+		return music.Track{}, fmt.Errorf("error loading data from Spotify API: %v", err)
 	}
-	return track
+	return track, nil
 }
 
-func SearchTrack(trackName string) []Track {
-	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", url.QueryEscape(trackName))
+func (s *spotifySongServer) Search(query string) ([]music.Track, error) {
+	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", url.QueryEscape(query))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
 	if err != nil {
-		fmt.Println("Error querying Spotify API:", err)
-		return []Track{}
+		return []music.Track{}, fmt.Errorf("error querying Spotify API: %v", err)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading from Spotify API:", err)
-		return []Track{}
+		return []music.Track{}, fmt.Errorf("error reading from Spotify API: %v", err)
 	}
-	var spotifyResp SpotifyResponse
+	var spotifyResp spotifyResponse
 	err = json.Unmarshal(body, &spotifyResp)
 	if err != nil {
-		fmt.Println("Error loading data from Spotify API:", err)
-		return []Track{}
+		return []music.Track{}, fmt.Errorf("error loading data from Spotify API: %v", err)
 	}
-	return spotifyResp.Tracks.Items
+	return spotifyResp.Tracks.Items, nil
 }

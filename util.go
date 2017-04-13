@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"room"
 	"strings"
 
+	"github.com/bcspragu/Radiotation/room"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 )

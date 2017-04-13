@@ -2,7 +2,8 @@ package main
 
 import (
 	"net/http"
-	"room"
+
+	"github.com/bcspragu/Radiotation/room"
 
 	"golang.org/x/net/context"
 )
