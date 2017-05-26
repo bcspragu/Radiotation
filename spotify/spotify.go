@@ -25,7 +25,7 @@ func NewSongServer(apiEndpoint string) music.SongServer {
 }
 
 func (s *spotifySongServer) Track(id string) (music.Track, error) {
-	url := fmt.Sprintf("http://api.spotify.com/v1/tracks/%s", url.QueryEscape(id))
+	url := fmt.Sprintf("http://%s/v1/tracks/%s", s.apiEndpoint, url.QueryEscape(id))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *spotifySongServer) Track(id string) (music.Track, error) {
 }
 
 func (s *spotifySongServer) Search(query string) ([]music.Track, error) {
-	url := fmt.Sprintf("http://api.spotify.com/v1/search?q=%s&type=track", url.QueryEscape(query))
+	url := fmt.Sprintf("http://%s/v1/search?q=%s&type=track", s.apiEndpoint, url.QueryEscape(query))
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
 	if err != nil {

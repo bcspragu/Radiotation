@@ -3,13 +3,6 @@ var conn;
 $(function() {
   loadWebSockets();
 
-  $('.room-form').submit(function(e) {
-    var form = $(this);
-    var room = form.find('.room-name').val();
-    form.attr('action', '/rooms/' + room);
-    form.find('.room-name').remove();
-  });
-
   $('.search-form').submit(function(e) {
     e.preventDefault();
     reloadResults();
@@ -42,7 +35,7 @@ function reloadResults() {
 }
 
 function loadWebSockets() {
-  if (window["WebSocket"] && room !== '') {
+  if (window["WebSocket"] && typeof(room) !== 'undefined' && room != '') {
     conn = new WebSocket("ws://" + host + "/rooms/" + room + "/ws");
     conn.onclose = function(evt) {
       // Something

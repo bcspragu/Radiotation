@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/bcspragu/Radiotation/room"
@@ -87,14 +88,20 @@ func (c *connection) writePump() {
 }
 
 // serveData handles websocket requests from the peer trying to connect
-func serveData(c Context) {
-	ws, err := upgrader.Upgrade(c.w, c.r, nil)
+func serveData(w http.ResponseWriter, r *http.Request) {
+	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		serveError(c.w, err)
+		serveError(w, err)
 		return
 	}
 
-	conn := &connection{send: make(chan []byte, 256), ws: ws, user: c.User}
+	u, err := user(r)
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+
+	conn := &connection{send: make(chan []byte, 256), ws: ws, user: u}
 	h.register <- conn
 	go conn.writePump()
 	conn.readPump()

@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
-	"fmt"
+	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
@@ -15,16 +16,21 @@ import (
 	"github.com/gorilla/securecookie"
 )
 
-var s *securecookie.SecureCookie
+type tmplData struct {
+	Host string
+	Room *room.Room
+}
 
-var addr = flag.String("addr", ":8000", "http service address")
-var env = flag.String("env", "development", "the environment to run in")
-var dev bool
+var (
+	rooms = make(map[string]*room.Room)
+	users = make(map[string]*room.User)
+	addr  = flag.String("addr", ":8000", "http service address")
+	env   = flag.String("env", "development", "the environment to run in")
 
-var templates RadioTemplate
-
-var rooms = make(map[string]*room.Room)
-var users = make(map[string]*room.User)
+	dev   bool
+	s     *securecookie.SecureCookie
+	tmpls *template.Template
+)
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -36,28 +42,28 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", withLogin(serveHome)).Methods("GET")
-	r.HandleFunc("/rooms/{key}", withLogin(serveRoom)).Methods("GET")
-	r.HandleFunc("/rooms/{key}/create", withLogin(createRoom)).Methods("POST")
-	r.HandleFunc("/rooms/{key}/search", withLogin(serveSearch)).Methods("GET")
-	r.HandleFunc("/rooms/{key}/queue", withLogin(serveQueue)).Methods("GET")
-	r.HandleFunc("/rooms/{key}/add", withLogin(addToQueue)).Methods("POST")
-	r.HandleFunc("/rooms/{key}/pop", withLogin(serveSong)).Methods("GET")
-	r.HandleFunc("/rooms/{key}/ws", withLogin(serveData)).Methods("GET")
+	r.HandleFunc("/rooms", withLogin(createRoom)).Methods("POST")
+	r.HandleFunc("/rooms/{id}", withLogin(serveRoom)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/search", withLogin(serveSearch)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/queue", withLogin(serveQueue)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/add", withLogin(addToQueue)).Methods("POST")
+	r.HandleFunc("/rooms/{id}/pop", withLogin(serveSong)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/ws", withLogin(serveData)).Methods("GET")
 
 	http.Handle("/", r)
 
 	var err error
 
 	if err = servePaths(); err != nil {
-		log.Fatal("Can't serve static assets", err)
+		log.Fatalf("Can't serve static assets: %v", err)
 	}
 
-	if templates, err = loadTemplates(); err != nil {
-		log.Fatal("Can't load templates, dying: ", err)
+	if tmpls, err = template.ParseGlob("templates/*.html"); err != nil {
+		log.Fatalf("Can't load templates, dying: %v", err)
 	}
 
 	if err = loadKeys(); err != nil {
-		log.Fatal("Can't load or generate keys, dying: ", err)
+		log.Fatalf("Can't load or generate keys, dying: %v", err)
 	}
 
 	err = http.ListenAndServe(*addr, nil)
@@ -66,11 +72,9 @@ func main() {
 	}
 }
 
-func serveHome(c Context) {
-	dat := map[string]interface{}{}
-
-	if err := templates.ExecuteTemplate(c, "index.html", dat); err != nil {
-		serveError(c.w, err)
+func serveHome(w http.ResponseWriter, r *http.Request) {
+	if err := tmpls.ExecuteTemplate(w, "index.html", data(r)); err != nil {
+		serveError(w, err)
 	}
 }
 
@@ -91,104 +95,156 @@ type TrackResponse struct {
 	Track   music.Track
 }
 
-func addToQueue(c Context) {
-	c.w.Header().Set("Content-Type", "application/json")
-
-	data := QueueResponse{}
-
-	track, err := c.Room.SongServer.Track(c.r.FormValue("id"))
+func addToQueue(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	rm, err := getRoom(r)
 	if err != nil {
-		data.Error = true
-		data.Message = err.Error()
-		json.NewEncoder(c.w).Encode(data)
+		jsonErr(w, err)
 		return
 	}
 
-	if c.Queue.HasTrack(track) {
-		err = c.Queue.RemoveTrack(track)
-	} else {
-		err = c.Queue.AddTrack(track)
-	}
-
+	queue, err := queue(r)
 	if err != nil {
-		data.Error = true
-		data.Message = err.Error()
-		json.NewEncoder(c.w).Encode(data)
+		jsonErr(w, err)
 		return
 	}
 
-}
-
-func serveQueue(c Context) {
-	data := allData{
-		"Queue": c.Queue,
-		"Raw":   true,
-	}
-	err := templates.ExecuteTemplate(c, "queue.html", data)
+	track, err := rm.SongServer.Track(r.FormValue("id"))
 	if err != nil {
-		fmt.Println(err)
+		jsonErr(w, err)
+		return
 	}
-}
 
-func serveSong(c Context) {
-	c.w.Header().Set("Content-Type", "application/json")
-
-	data := TrackResponse{}
-	if c.Room.HasTracks() {
-		u, t := c.Room.PopTrack()
-		data.Track = t
-		if c, ok := h.userconns[u]; ok {
-			c.send <- []byte{}
-		}
-		respString, _ := json.Marshal(data)
-		fmt.Fprint(c.w, string(respString))
+	if queue.HasTrack(track) {
+		err = queue.RemoveTrack(track)
 	} else {
-		data.Error = true
-		data.Message = "No tracks to choose from"
-		respString, _ := json.Marshal(data)
-		fmt.Fprint(c.w, string(respString))
+		err = queue.AddTrack(track)
+	}
+
+	if err != nil {
+		jsonErr(w, err)
+		return
 	}
 }
 
-func createRoom(c Context) {
-	vars := mux.Vars(c.r)
-	roomName := vars["key"]
-
-	if _, ok := rooms[roomName]; !ok {
-		// Add the new room
-		rooms[roomName] = room.New(roomName)
-	}
-
-	http.Redirect(c.w, c.r, "/rooms/"+roomName, 302)
+func jsonErr(w http.ResponseWriter, err error) {
+	json.NewEncoder(w).Encode(QueueResponse{
+		Error:   true,
+		Message: err.Error(),
+	})
 }
 
-func serveRoom(c Context) {
-	if c.Room == nil {
-		// Make the user create it first
-		data := allData{
-			"Room": &room.Room{Name: mux.Vars(c.r)["key"]},
-		}
+func serveQueue(w http.ResponseWriter, r *http.Request) {
+	rm, err := getRoom(r)
+	if err != nil {
+		log.Printf("Couldn't load room: %v", err)
+		return
+	}
 
-		err := templates.ExecuteTemplate(c, "new_room.html", data)
+	queue, err := queue(r)
+	if err != nil {
+		log.Printf("Couldn't load queue: %v", err)
+		return
+	}
+
+	err = tmpls.ExecuteTemplate(w, "queue.html", struct {
+		Queue *room.Queue
+		Room  *room.Room
+	}{queue, rm})
+	if err != nil {
+		log.Printf("Failed to execute queue template: %v", err)
+	}
+}
+
+func serveSong(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	rm, err := getRoom(r)
+	if err != nil {
+		log.Printf("Couldn't load room: %v", err)
+		return
+	}
+
+	if !rm.HasTracks() {
+		jsonErr(w, errors.New("No tracks to choose from"))
+		return
+	}
+
+	u, t := rm.PopTrack()
+	// Let the user know we're playing their track
+	if c, ok := h.userconns[u]; ok {
+		c.send <- []byte{}
+	}
+
+	err = json.NewEncoder(w).Encode(TrackResponse{
+		Track: t,
+	})
+}
+
+func createRoom(w http.ResponseWriter, r *http.Request) {
+	dispName := r.PostFormValue("room")
+	id := room.Normalize(dispName)
+	if _, ok := rooms[id]; ok {
+		http.Redirect(w, r, "/rooms/"+id, 302)
+		return
+	}
+
+	// Add the new, non-existent room
+	rm := room.New(dispName)
+	switch r.PostFormValue("shuffle_order") {
+	case "robin":
+		rm.Rotator = room.RoundRobin()
+	case "random":
+		rm.Rotator = room.Shuffle()
+	}
+	rooms[id] = rm
+	http.Redirect(w, r, "/rooms/"+id, 302)
+
+}
+
+func serveRoom(w http.ResponseWriter, r *http.Request) {
+	rm, err := getRoom(r)
+	if err != nil {
+		id := roomID(r)
+		log.Printf("No room found with ID %s", id)
+
+		err := tmpls.ExecuteTemplate(w, "new_room.html", struct {
+			DisplayName string
+			ID          string
+			Host        string
+			Room        *room.Room
+		}{mux.Vars(r)["id"], id, r.Host, nil})
 		if err != nil {
-			serveError(c.w, err)
-			return
+			serveError(w, err)
 		}
-	} else {
+		return
+	}
 
-		if c.Queue == nil {
-			c.Room.AddUser(c.User)
-		}
+	u, err := user(r)
+	if err != nil {
+		serveError(w, err)
+		return
+	}
 
-		data := allData{
-			"Room":  c.Room,
-			"Queue": c.Queue,
-			"Host":  c.r.Host,
-		}
+	queue, err := queue(r)
+	if err != nil {
+		log.Printf("Couldn't load queue for user in room, creating: %v", err)
+		rm.AddUser(u)
+	}
 
-		err := templates.ExecuteTemplate(c, "room.html", data)
-		if err != nil {
-			serveError(c.w, err)
-		}
+	err = tmpls.ExecuteTemplate(w, "room.html", struct {
+		Room  *room.Room
+		Queue *room.Queue
+		Host  string
+	}{rm, queue, r.Host})
+	if err != nil {
+		serveError(w, err)
+	}
+}
+
+func data(r *http.Request) *tmplData {
+	rm, _ := getRoom(r)
+	return &tmplData{
+		Host: r.Host,
+		Room: rm,
 	}
 }

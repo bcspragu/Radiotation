@@ -5,6 +5,23 @@ html, body {
   overflow-x: hidden;
 }
 
+.text-center {
+  text-align: center;
+}
+
+.how-it-works {
+  margin-left: 2em;
+}
+
+.room-form input {
+  display: inline;
+}
+
+.room-form label {
+  display: inline;
+  margin-right: 1em;
+}
+
 .page-wrap {
   display: flex;
   flex-direction: column;
@@ -42,7 +59,7 @@ html, body {
 }
 
 .search-track .album-art {
-  min-height: 100px;
+  min-height: 250px;
 }
 
 .search-track .album-art form {
@@ -58,10 +75,25 @@ html, body {
 }
 
 .search-track {
-  width: 100px;
-  min-width: 100px;
+  width: 250px;
+  min-width: 250px;
   text-align: center;
   margin: 0 10px;
+  margin-bottom: 24px;
+}
+
+.track-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.track-artist {
+  margin-top: -4px;
+  font-size: 10px;
 }
 
 .queue-track {

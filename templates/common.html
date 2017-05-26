@@ -1,0 +1,60 @@
+{{ define "header" }}
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html lang="en" class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html lang="en" class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html lang="en" class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html lang="en" class="no-js"> <!--<![endif]-->
+  <head>
+    <meta charset="utf-8" />
+    <title>Radiotation</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css">
+    <link rel="stylesheet" href="/css/main.css">
+  </head>
+  <body>
+    <!--[if lt IE 7]>
+      <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+    <![endif]-->
+{{ end }}
+
+{{ define "footer" }}
+    <script>
+      var host = '{{ .Host }}';
+      {{ if .Room }}
+        var room = '{{ .Room.ID }}';
+      {{ end }} 
+    </script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="/js/main.js"></script>
+  </body>
+</html>
+{{ end }}
+
+{{ define "room-form" }}
+  <form class="room-form text-center" action="/rooms" method="POST">
+    <div>
+      <label for="room">Room Name</label>
+      <input type="text" name="room" class="room-name" placeholder="Room Name" value="{{ . }}">
+    </div>
+
+    <div>
+      <label for="music_source">Music Source</label>
+      <select name="music_source">
+        <!--<option value="gmusic">Google Play Music</option>-->
+        <option value="spotify">Spotify</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="shuffle_order">Shuffle Order</label>
+      <select name="shuffle_order">
+        <option value="robin">Round Robin</option>
+        <option value="random">Random</option>
+      </select>
+    </div>
+
+    <div><button type="submit" class="button">Search</button></div>
+  </form>
+{{ end }}

@@ -1,0 +1,26 @@
+{{ $q := .Queue }}
+{{ $r := .Room }}
+{{ if .Tracks }}
+  {{ range $i, $track := .Tracks }}
+    <div class="search-track">
+      <div href="#" class="thumbnail">
+        <div class="album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}">
+          <form class="add" action="/rooms/{{ $r.ID }}/add">
+            {{ if $q.HasTrack $track }}
+              <a href="#"><span class="fa fa-ok"></span></a>
+            {{ else }}
+              <a href="#"><span class="fa fa-plus"></span></a>
+            {{ end }}
+            <input type="hidden" name="id" value="{{ $track.ID }}"/>
+          </form>
+        </div>
+      </div>
+      <div class="track-info">
+        <div class="track-title">{{ $track.Name }}</div>
+        <div class="track-artist">{{ $track.ArtistList }}</div>
+      </div>
+    </div>
+  {{ end }}
+{{ else }}
+  <h1>No Tracks Found</h1>
+{{ end }}

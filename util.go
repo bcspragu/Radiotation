@@ -2,76 +2,58 @@ package main
 
 import (
 	"errors"
-	"html/template"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/bcspragu/Radiotation/room"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 )
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var (
+	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+)
 
-func withLogin(handler func(c Context)) func(w http.ResponseWriter, r *http.Request) {
+func withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// If they have the cookie, load it
-		var user *room.User
-
-		if cookie, err := r.Cookie("login"); err == nil {
-			value := struct {
-				ID string
-			}{}
-			if err = s.Decode("login", cookie.Value, &value); err == nil {
-				// If we're here, we've decoded it
-				if u, ok := users[value.ID]; ok {
-					user = u
-				}
-			}
+		if _, err := user(r); err != nil {
+			log.Printf("Unable to load user from request: %v", err)
+			createUser(w)
 		}
 
-		// No valid user found, create one
-		if user == nil {
-			// If two people get the same ID randomly, I'll play Powerball more often
-			id := genName(64)
-
-			val := struct {
-				ID string
-			}{
-				ID: id,
-			}
-
-			if encoded, err := s.Encode("login", val); err == nil {
-				cookie := &http.Cookie{
-					Name:  "login",
-					Value: encoded,
-					Path:  "/",
-				}
-				http.SetCookie(w, cookie)
-			} else {
-				log.Println(err)
-			}
-
-			// We've written the user, we can persist them now
-			user = room.NewUser(id)
-			users[id] = user
-		}
-
-		c := NewContext(w, r)
-		c.User = user
-		roomName := mux.Vars(r)["key"]
-		c.Room = rooms[roomName]
-		if c.User != nil && c.Room != nil {
-			c.Room.AddUser(c.User)
-			c.Queue = c.User.Queues[roomName]
-		}
-		handler(c)
+		handler(w, r)
 	}
+}
+
+func createUser(w http.ResponseWriter) {
+	// If two people get the same ID randomly, I'll play Powerball more often
+
+	// Future you checking in, was just wondering if we check for collisions.
+	// Turns out we don't, but the above answer is very solid.
+	id := genName(64)
+	val := struct {
+		ID string
+	}{
+		ID: id,
+	}
+
+	if encoded, err := s.Encode("login", val); err == nil {
+		cookie := &http.Cookie{
+			Name:  "login",
+			Value: encoded,
+			Path:  "/",
+		}
+		http.SetCookie(w, cookie)
+	} else {
+		log.Printf("Error encoding cookie: %v", err)
+	}
+
+	// We've written the user, we can persist them now
+	log.Printf("Creating user with ID %s", id)
+	users[id] = room.NewUser(id)
 }
 
 func serveError(w http.ResponseWriter, err error) {
@@ -101,58 +83,28 @@ func loadKeys() error {
 }
 
 func loadOrGenKey(name string) ([]byte, error) {
-	if f, err := ioutil.ReadFile(name); err != nil {
-		if dat := securecookie.GenerateRandomKey(32); dat != nil {
-			if err := ioutil.WriteFile(name, dat, 0777); err == nil {
-				return dat, nil
-			}
-			return nil, errors.New("Error writing file")
-		}
-		return nil, errors.New("Failed to generate key")
-	} else {
+	f, err := ioutil.ReadFile(name)
+	if err == nil {
 		return f, nil
 	}
+
+	dat := securecookie.GenerateRandomKey(32)
+	if dat == nil {
+		return nil, errors.New("Failed to generate key")
+	}
+
+	err = ioutil.WriteFile(name, dat, 0777)
+	if err != nil {
+		return nil, errors.New("Error writing file")
+	}
+	return dat, nil
 }
 
 func servePaths() error {
-	for _, dir := range []string{"js", "img", "css", "bower_components"} {
+	for _, dir := range []string{"js", "img", "css"} {
 		http.Handle("/"+dir+"/", http.StripPrefix("/"+dir+"/", http.FileServer(http.Dir(dir))))
 	}
-
-	// Note, this is sketchy, because it means for a path a/b/file, you can access it at:
-	// /a/b/file,
-	// /b/file
-	// Which isn't ideal, but it stems from the fact that we're inconsistent with
-	// our usage, ie we use app/component/blahblah but want view#/ instead of
-	// app/view#/
-	// I have no intentions of fixing it #NORAGRETS
-	err := filepath.Walk("app", func(path string, info os.FileInfo, err error) error {
-		// Only serve app/ and first level subdirectories at the root
-		if info.IsDir() && strings.Count(path, "/") < 2 {
-			dirs := strings.Split(path, "/")
-			dir := dirs[len(dirs)-1]
-			http.Handle("/"+dir+"/", http.StripPrefix("/"+dir+"/", http.FileServer(http.Dir(path))))
-		}
-
-		return nil
-	})
-	return err
-}
-
-func loadTemplates() (RadioTemplate, error) {
-	template := template.New("templates").Delims("[[", "]]")
-
-	err := filepath.Walk("app", func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, ".html") {
-			if _, err := template.ParseFiles(path); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-
-	return RadioTemplate{template}, err
+	return nil
 }
 
 func genName(n int) string {
@@ -161,4 +113,51 @@ func genName(n int) string {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+func roomID(r *http.Request) string {
+	return room.Normalize(mux.Vars(r)["id"])
+}
+
+func getRoom(r *http.Request) (*room.Room, error) {
+	id := roomID(r)
+	rm, ok := rooms[id]
+	if !ok {
+		return nil, fmt.Errorf("No room found for key %s", id)
+	}
+
+	return rm, nil
+}
+
+func queue(r *http.Request) (*room.Queue, error) {
+	id := roomID(r)
+	user, err := user(r)
+	if err != nil {
+		return nil, fmt.Errorf("Error loading user: %v", err)
+	}
+
+	if _, ok := user.Queues[id]; !ok {
+		user.AddQueue(id)
+	}
+	return user.Queues[id], nil
+}
+
+func user(r *http.Request) (*room.User, error) {
+	cookie, err := r.Cookie("login")
+
+	if err != nil {
+		return nil, fmt.Errorf("Error loading cookie, or no cookie found: %v", err)
+	}
+
+	value := struct{ ID string }{}
+	if err := s.Decode("login", cookie.Value, &value); err != nil {
+		return nil, fmt.Errorf("Error decoding cookie: %v", err)
+	}
+
+	u, ok := users[value.ID]
+	if !ok {
+		return nil, fmt.Errorf("User not found in system")
+	}
+
+	return u, nil
 }

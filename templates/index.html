@@ -1,0 +1,18 @@
+{{ template "header" . }}
+<div class="container content main-content">
+  <div class="text-center">
+    <h1>Welcome to Radiotation!</h1>
+  </div>
+  <h2>Here's how it works</h2>
+  <ol class="how-it-works">
+    <li>Join an existing room with your friends or create a new one.</li>
+    <li>Search for your favorite songs, and add them to your playlist.</li>
+    <li>Open up the Radiotation app for Android and start playing it back.</li>
+  </ol>
+  <p>
+    Radiotation will handle the rest, giving everyone equal playtime in the
+    car (as long as everyone has added music!)
+  </p>
+  {{ template "room-form" . }}
+</div>
+{{ template "footer" . }}

@@ -1,0 +1,22 @@
+{{ template "header" . }}
+<div class="text-center">
+  <div class="header">{{ .Room.DisplayName }}</div>
+  <form class="search-form" action="/rooms/{{ .Room.ID }}/search">
+    <div class="form-group">
+      <label for="search" class="col-sm-3 hidden-xs control-label">Search for Music</label>
+      <div class="col-sm-7 col-xs-8">
+        <input type="text" name="search" class="form-control" placeholder="Song name">
+      </div>
+      <div class="col-sm-1 col-xs-4">
+        <button type="submit" class="btn btn-primary search">Search</button>
+      </div>
+    </div>
+  </form>
+  <div class="queue-holder">
+    <div class="queue">
+      {{ template "queue" .}}
+    </div>
+  </div>
+  <div class="results"></div>
+</div>
+{{ template "footer" . }}

@@ -1,7 +1,8 @@
+{{ template "header" . }}
 <div ng-cloak layout="column" layout-align="center center">
-  [[ if .Message ]]
-  <h1 flex>[[.Message]]</h1>
-  [[ end ]]
+  {{ if .Message }}
+  <h1 flex>{{.Message}}</h1>
+  {{ end }}
   <div layout="row" layout-align="space-between start">
     <div flex="30" class="md-padding">
       <h1>Here's how it works</h1>
@@ -43,4 +44,4 @@
     <md-button type="submit" class="md-raised md-primary">Login</md-button>
   </form>
 </div>
-[[ template "scripts" . ]]
+{{ template "footer" . }}
