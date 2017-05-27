@@ -1,65 +1,63 @@
 package room
 
-import (
-	"errors"
-
-	"github.com/bcspragu/Radiotation/music"
-)
+import "github.com/bcspragu/Radiotation/music"
 
 type Queue struct {
-	Offset   int
-	Tracks   []music.Track
-	TrackMap map[string]music.Track
+	offset   int
+	tracks   []music.Track
+	trackMap map[string]music.Track
 }
 
-func (q *Queue) AddTrack(newTrack music.Track) error {
-	if q.HasTrack(newTrack) {
-		return errors.New("Track is already in your queue, relax")
-	}
-	q.Tracks = append(q.Tracks, newTrack)
-	q.TrackMap[newTrack.ID] = newTrack
-	return nil
+func (q *Queue) Offset() int {
+	return q.offset
+}
+
+func (q *Queue) Tracks() []music.Track {
+	return q.tracks
+}
+
+func (q *Queue) AddTrack(t music.Track) {
+	q.tracks = append(q.tracks, t)
+	q.trackMap[t.ID] = t
 }
 
 func (q *Queue) NextTrack() music.Track {
-	if q.Offset < len(q.Tracks) {
-		track := q.Tracks[q.Offset]
-		delete(q.TrackMap, track.ID)
-		q.Offset++
+	if q.offset < len(q.tracks) {
+		track := q.tracks[q.offset]
+		delete(q.trackMap, track.ID)
+		q.offset++
 		return track
 	}
 	// TODO(bsprague): Probably add errors back
 	return music.Track{}
 }
 
-func (q *Queue) RemoveTrack(delTrack music.Track) error {
-	for i, track := range q.Tracks {
-		if track.ID == delTrack.ID && i >= q.Offset {
-			q.Tracks = append(q.Tracks[:i], q.Tracks[i+1:]...)
-			delete(q.TrackMap, track.ID)
-			return nil
+func (q *Queue) RemoveTrack(delTrack music.Track) {
+	for i, track := range q.tracks {
+		if track.ID == delTrack.ID && i >= q.offset {
+			q.tracks = append(q.tracks[:i], q.tracks[i+1:]...)
+			delete(q.trackMap, track.ID)
 		}
 	}
-	return errors.New("Track isn't in your queue, relax")
 }
 
 func (q *Queue) HasTracks() bool {
-	return len(q.Tracks) > q.Offset
+	return len(q.tracks) > q.offset
 }
 
-func (q *Queue) TrackCount() int {
-	return len(q.Tracks)
+func (q *Queue) NumTracks() int {
+	return len(q.tracks)
 }
 
 func (q *Queue) HasTrack(track music.Track) bool {
-	_, ok := q.TrackMap[track.ID]
+	_, ok := q.trackMap[track.ID]
 	return ok
 }
 
 func CountTracks(queues []*Queue) int {
-	trackCount := 0
+	c := 0
 	for _, q := range queues {
-		trackCount += q.TrackCount()
+		c += q.NumTracks()
 	}
-	return trackCount
+	return c
 }

@@ -12,13 +12,13 @@ $(function() {
     e.preventDefault();
 
     var form = $(this).parents('form');
-    var icon = $(this).find('.glyphicon');
+    var icon = $(this).find('.fa');
     $.post(form.attr('action'), form.serialize(), function(data) {
       if (data.Error) {
         alert(data.Message);
       } else {
-        icon.toggleClass('glyphicon-ok');
-        icon.toggleClass('glyphicon-plus');
+        icon.toggleClass('fa-ok');
+        icon.toggleClass('fa-plus');
         $('.queue').load('/rooms/' + room + '/queue');
         reloadResults();
       }

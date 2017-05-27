@@ -1,26 +1,39 @@
 package room
 
-import "github.com/bcspragu/Radiotation/music"
+import (
+	"sync"
+
+	"github.com/bcspragu/Radiotation/music"
+)
 
 type User struct {
 	ID     string
-	Queues map[string]*Queue
+	queues map[string]*Queue
+	m      *sync.RWMutex
 }
 
-type Users []*User
-
-func (u *User) AddQueue(name string) {
-	if u.Queues[name] == nil {
-		u.Queues[name] = &Queue{
-			Tracks:   []music.Track{},
-			TrackMap: make(map[string]music.Track),
-		}
+func (u *User) Queue(id string) *Queue {
+	u.m.RLock()
+	q := u.queues[id]
+	if q != nil {
+		u.m.RUnlock()
+		return q
 	}
+	u.m.RUnlock()
+
+	u.m.Lock()
+	defer u.m.Unlock()
+	u.queues[id] = &Queue{
+		tracks:   []music.Track{},
+		trackMap: make(map[string]music.Track),
+	}
+	return u.queues[id]
 }
 
 func NewUser(id string) *User {
 	return &User{
 		ID:     id,
-		Queues: make(map[string]*Queue),
+		queues: make(map[string]*Queue),
+		m:      &sync.RWMutex{},
 	}
 }

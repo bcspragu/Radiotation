@@ -39,20 +39,21 @@ type connection struct {
 }
 
 // readPump pumps messages from the websocket connection to the hub.
-func (c *connection) readPump() {
+func (c *connection) readPump(s *srv) {
 	defer func() {
-		h.unregister <- c
+		s.h.unregister <- c
 		c.ws.Close()
 	}()
 	c.ws.SetReadLimit(maxMessageSize)
 	c.ws.SetReadDeadline(time.Now().Add(pongWait))
 	c.ws.SetPongHandler(func(string) error { c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
-		_, message, err := c.ws.ReadMessage()
+		//_, message, err := c.ws.ReadMessage()
+		_, _, err := c.ws.ReadMessage()
 		if err != nil {
 			break
 		}
-		h.broadcast <- message
+		// TODO(bcspragu): Make sure we don't have any legitimate uses for incoming WS frames
 	}
 }
 
@@ -88,21 +89,21 @@ func (c *connection) writePump() {
 }
 
 // serveData handles websocket requests from the peer trying to connect
-func serveData(w http.ResponseWriter, r *http.Request) {
+func (s *srv) serveData(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		serveError(w, err)
 		return
 	}
 
-	u, err := user(r)
+	u, err := s.user(r)
 	if err != nil {
 		serveError(w, err)
 		return
 	}
 
 	conn := &connection{send: make(chan []byte, 256), ws: ws, user: u}
-	h.register <- conn
+	s.h.register <- conn
 	go conn.writePump()
-	conn.readPump()
+	conn.readPump(s)
 }

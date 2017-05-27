@@ -15,10 +15,7 @@
           </form>
         </div>
       </div>
-      <div class="track-info">
-        <div class="track-title">{{ $track.Name }}</div>
-        <div class="track-artist">{{ $track.ArtistList }}</div>
-      </div>
+      {{ template "track" $track }}
     </div>
   {{ end }}
 {{ else }}

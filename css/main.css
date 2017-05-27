@@ -1,8 +1,42 @@
-html, body {
-  max-width: 100%;
+html {
+  overflow: hidden;
+}
+
+body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+.flexbox-wrapper { 
+  height: 100%;
+  display: -webkit-box;     /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box;        /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox;     /* TWEENER - IE 10 */
+  display: -webkit-flex;    /* NEW - Chrome */
+  display: flex;            /* NEW, Spec - Opera 12.1, Firefox 20+ */
+  -ms-flex-flow: column nowrap;
+  -webkit-flex-flow: column nowrap;
+  flex-flow: column nowrap;
+  -webkit-align-content: stretch;
+  -ms-flex-line-pack: stretch;
+  align-content: stretch;
+}
+
+.flexbox-row {
+  width: 100%;
+}
+
+.flexbox-row-fixed {
+  background-color: #EEE;
+}
+
+.flexbox-row-fill {
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  flex: 2;
 }
 
 .text-center {
@@ -32,7 +66,9 @@ html, body {
 }
 
 .queue-holder {
-  flex: 1;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  margin-left: 12px;
 }
 
 .queue {
@@ -109,8 +145,4 @@ html, body {
 
 .queue-track img {
   height: 100px;
-}
-
-.jumbotron {
-  flex: 1;
 }

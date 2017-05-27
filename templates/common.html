@@ -55,6 +55,13 @@
       </select>
     </div>
 
-    <div><button type="submit" class="button">Search</button></div>
+    <div><button type="submit" class="button">Create Room</button></div>
   </form>
+{{ end }}
+
+{{ define "track" }}
+  <div class="track-info">
+    <div class="track-title">{{ .Name }}</div>
+    <div class="track-artist">{{ .ArtistList }}</div>
+  </div>
 {{ end }}

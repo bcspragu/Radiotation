@@ -7,14 +7,14 @@ import (
 	"github.com/bcspragu/Radiotation/room"
 )
 
-func serveSearch(w http.ResponseWriter, r *http.Request) {
-	rm, err := getRoom(r)
+func (s *srv) serveSearch(w http.ResponseWriter, r *http.Request) {
+	rm, err := s.getRoom(r)
 	if err != nil {
 		serveError(w, err)
 		return
 	}
 
-	queue, err := queue(r)
+	u, err := s.user(r)
 	if err != nil {
 		serveError(w, err)
 		return
@@ -26,7 +26,7 @@ func serveSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tmpls.ExecuteTemplate(w, "search.html", struct {
+	err = s.tmpls.ExecuteTemplate(w, "search.html", struct {
 		Host   string
 		Tracks []music.Track
 		Queue  *room.Queue
@@ -34,7 +34,7 @@ func serveSearch(w http.ResponseWriter, r *http.Request) {
 	}{
 		Host:   r.Host,
 		Tracks: tracks,
-		Queue:  queue,
+		Queue:  u.Queue(rm.ID),
 		Room:   rm,
 	})
 	if err != nil {

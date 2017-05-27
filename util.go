@@ -17,18 +17,18 @@ var (
 	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
 
-func withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+func (s *srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := user(r); err != nil {
+		if _, err := s.user(r); err != nil {
 			log.Printf("Unable to load user from request: %v", err)
-			createUser(w)
+			s.createUser(w)
 		}
 
 		handler(w, r)
 	}
 }
 
-func createUser(w http.ResponseWriter) {
+func (s *srv) createUser(w http.ResponseWriter) {
 	// If two people get the same ID randomly, I'll play Powerball more often
 
 	// Future you checking in, was just wondering if we check for collisions.
@@ -40,7 +40,7 @@ func createUser(w http.ResponseWriter) {
 		ID: id,
 	}
 
-	if encoded, err := s.Encode("login", val); err == nil {
+	if encoded, err := s.sc.Encode("login", val); err == nil {
 		cookie := &http.Cookie{
 			Name:  "login",
 			Value: encoded,
@@ -53,7 +53,9 @@ func createUser(w http.ResponseWriter) {
 
 	// We've written the user, we can persist them now
 	log.Printf("Creating user with ID %s", id)
-	users[id] = room.NewUser(id)
+	s.um.Lock()
+	s.users[id] = room.NewUser(id)
+	s.um.Unlock()
 }
 
 func serveError(w http.ResponseWriter, err error) {
@@ -61,25 +63,18 @@ func serveError(w http.ResponseWriter, err error) {
 	log.Printf("Error: %v\n", err)
 }
 
-func loadKeys() error {
-	var hashKey []byte
-	var blockKey []byte
-
-	if dat, err := loadOrGenKey("hashKey"); err != nil {
-		return err
-	} else {
-		hashKey = dat
+func loadKeys() (*securecookie.SecureCookie, error) {
+	hashKey, err := loadOrGenKey("hashKey")
+	if err != nil {
+		return nil, err
 	}
 
-	if dat, err := loadOrGenKey("blockKey"); err != nil {
-		return err
-	} else {
-		blockKey = dat
+	blockKey, err := loadOrGenKey("blockKey")
+	if err != nil {
+		return nil, err
 	}
 
-	s = securecookie.New(hashKey, blockKey)
-
-	return nil
+	return securecookie.New(hashKey, blockKey), nil
 }
 
 func loadOrGenKey(name string) ([]byte, error) {
@@ -119,9 +114,11 @@ func roomID(r *http.Request) string {
 	return room.Normalize(mux.Vars(r)["id"])
 }
 
-func getRoom(r *http.Request) (*room.Room, error) {
+func (s *srv) getRoom(r *http.Request) (*room.Room, error) {
 	id := roomID(r)
-	rm, ok := rooms[id]
+	s.rm.RLock()
+	rm, ok := s.rooms[id]
+	s.rm.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("No room found for key %s", id)
 	}
@@ -129,20 +126,7 @@ func getRoom(r *http.Request) (*room.Room, error) {
 	return rm, nil
 }
 
-func queue(r *http.Request) (*room.Queue, error) {
-	id := roomID(r)
-	user, err := user(r)
-	if err != nil {
-		return nil, fmt.Errorf("Error loading user: %v", err)
-	}
-
-	if _, ok := user.Queues[id]; !ok {
-		user.AddQueue(id)
-	}
-	return user.Queues[id], nil
-}
-
-func user(r *http.Request) (*room.User, error) {
+func (s *srv) user(r *http.Request) (*room.User, error) {
 	cookie, err := r.Cookie("login")
 
 	if err != nil {
@@ -150,11 +134,13 @@ func user(r *http.Request) (*room.User, error) {
 	}
 
 	value := struct{ ID string }{}
-	if err := s.Decode("login", cookie.Value, &value); err != nil {
+	if err := s.sc.Decode("login", cookie.Value, &value); err != nil {
 		return nil, fmt.Errorf("Error decoding cookie: %v", err)
 	}
 
-	u, ok := users[value.ID]
+	s.um.RLock()
+	u, ok := s.users[value.ID]
+	s.um.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("User not found in system")
 	}
