@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"html/template"
 	"log"
 	"math/rand"
@@ -80,6 +79,7 @@ func main() {
 	r.HandleFunc("/rooms/{id}", s.withLogin(s.serveRoom)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/queue", s.withLogin(s.serveQueue)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/now", s.withLogin(s.nowPlaying)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
 	r.HandleFunc("/rooms/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
 	r.HandleFunc("/rooms/{id}/pop", s.withLogin(s.serveSong)).Methods("GET")
@@ -187,6 +187,23 @@ func (s *srv) serveQueue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *srv) nowPlaying(w http.ResponseWriter, r *http.Request) {
+	rm, err := s.getRoom(r)
+	if err != nil {
+		log.Printf("Couldn't load room: %v", err)
+		return
+	}
+
+	_, t := rm.NowPlaying()
+	err = s.tmpls.ExecuteTemplate(w, "playing.html", struct {
+		Tracks []music.Track
+	}{[]music.Track{t}})
+
+	if err != nil {
+		log.Printf("Failed to execute queue template: %v", err)
+	}
+}
+
 func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	rm, err := s.getRoom(r)
@@ -203,8 +220,9 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	u, t := rm.PopTrack()
 	// Let the user know we're playing their track
 	if c, ok := s.h.userconns[u]; ok {
-		c.send <- []byte{}
+		c.send <- []byte("pop")
 	}
+	s.h.broadcast <- []byte("playing")
 
 	err = json.NewEncoder(w).Encode(TrackResponse{
 		Track: t,
@@ -268,7 +286,6 @@ func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Adding user %s to room %s", u.ID, rm.ID)
 		rm.AddUser(u)
 	}
-	fmt.Println(u, q)
 
 	err = s.tmpls.ExecuteTemplate(w, "room.html", struct {
 		Room  *room.Room

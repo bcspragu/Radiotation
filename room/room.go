@@ -82,6 +82,11 @@ func Shuffle() Rotator {
 	return &shuffleRotator{r: rand.New(rand.NewSource(time.Now().Unix()))}
 }
 
+type UserTrack struct {
+	user  *User
+	track music.Track
+}
+
 type Room struct {
 	ID          string
 	DisplayName string
@@ -90,6 +95,7 @@ type Room struct {
 
 	users   []*User
 	pending []*User
+	history []UserTrack
 	m       *sync.RWMutex
 }
 
@@ -100,6 +106,7 @@ func New(name string) *Room {
 		SongServer:  spotify.NewSongServer("api.spotify.com"),
 		users:       []*User{},
 		pending:     []*User{},
+		history:     []UserTrack{},
 		m:           &sync.RWMutex{},
 	}
 }
@@ -161,6 +168,16 @@ func (r *Room) HasTracks() bool {
 	return false
 }
 
+func (r *Room) NowPlaying() (*User, music.Track) {
+	r.m.RLock()
+	defer r.m.RUnlock()
+	if len(r.history) == 0 {
+		return nil, music.Track{}
+	}
+	ut := r.history[len(r.history)-1]
+	return ut.user, ut.track
+}
+
 func (r *Room) PopTrack() (*User, music.Track) {
 	r.m.Lock()
 	defer r.m.Unlock()
@@ -186,7 +203,13 @@ func (r *Room) PopTrack() (*User, music.Track) {
 			continue
 		}
 
-		return u, q.NextTrack()
+		t := q.NextTrack()
+		r.history = append(r.history, UserTrack{
+			user:  u,
+			track: t,
+		})
+
+		return u, t
 	}
 	return nil, music.Track{}
 }

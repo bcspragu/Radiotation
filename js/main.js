@@ -41,8 +41,16 @@ function loadWebSockets() {
       // Something
     }
     conn.onmessage = function(evt) {
-      $('.queue').load('/rooms/' + room + '/queue');
-      reloadResults();
+      if (evt.data === "pop") {
+        $('.queue').load('/rooms/' + room + '/queue');
+        reloadResults();
+        return;
+      }
+
+      if (evt.data === "playing") {
+        $('.now-playing').load('/rooms/' + room + '/now');
+        return;
+      }
     }
   } else {
     // You ain't got WebSockets, brah
