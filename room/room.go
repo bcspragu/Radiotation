@@ -50,7 +50,7 @@ func (s *shuffleRotator) nextIndex() (int, bool) {
 }
 
 func (s *shuffleRotator) start(n int) {
-	s.shuffleList = rand.Perm(n)
+	s.shuffleList = s.r.Perm(n)
 	s.index = 0
 }
 

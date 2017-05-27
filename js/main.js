@@ -8,16 +8,16 @@ $(function() {
     reloadResults();
   });
 
-  $('body').on('click', '.add a', function(e) {
+  $('body').on('click', '.update', function(e) {
     e.preventDefault();
 
-    var form = $(this).parents('form');
+    var form = $(this).find('form');
     var icon = $(this).find('.fa');
     $.post(form.attr('action'), form.serialize(), function(data) {
       if (data.Error) {
         alert(data.Message);
       } else {
-        icon.toggleClass('fa-ok');
+        icon.toggleClass('fa-check');
         icon.toggleClass('fa-plus');
         $('.queue').load('/rooms/' + room + '/queue');
         reloadResults();

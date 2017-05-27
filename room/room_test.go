@@ -118,18 +118,6 @@ func TestShuffleRotator(t *testing.T) {
 
 	r = &shuffleRotator{r: rand.New(rand.NewSource(0))}
 	r.start(2)
-	if idx, last := r.nextIndex(); idx != 0 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, true)
-	}
-
-	r = &shuffleRotator{r: rand.New(rand.NewSource(0))}
-	r.start(3)
-	if idx, last := r.nextIndex(); idx != 2 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, false)
-	}
 	if idx, last := r.nextIndex(); idx != 1 || last {
 		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
 	}
@@ -138,27 +126,39 @@ func TestShuffleRotator(t *testing.T) {
 	}
 
 	r = &shuffleRotator{r: rand.New(rand.NewSource(0))}
-	r.start(4)
-	if idx, last := r.nextIndex(); idx != 3 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 3, false)
+	r.start(3)
+	if idx, last := r.nextIndex(); idx != 1 || last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
 	}
 	if idx, last := r.nextIndex(); idx != 2 || last {
 		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, false)
 	}
+	if idx, last := r.nextIndex(); idx != 0 || !last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
+	}
+
+	r = &shuffleRotator{r: rand.New(rand.NewSource(3))}
+	r.start(4)
+	if idx, last := r.nextIndex(); idx != 2 || last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, false)
+	}
+	if idx, last := r.nextIndex(); idx != 1 || last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
+	}
 	// Restart in middle
-	r = &shuffleRotator{r: rand.New(rand.NewSource(0))}
+	r = &shuffleRotator{r: rand.New(rand.NewSource(3))}
 	r.start(4)
 	if idx, last := r.nextIndex(); idx != 2 || last {
 		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
 	}
+	if idx, last := r.nextIndex(); idx != 1 || last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
+	}
 	if idx, last := r.nextIndex(); idx != 3 || last {
 		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 3, false)
 	}
-	if idx, last := r.nextIndex(); idx != 0 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, true)
+	if idx, last := r.nextIndex(); idx != 0 || !last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
 	}
 }
 
@@ -173,7 +173,7 @@ func TestPopTrack_ConstantRotator(t *testing.T) {
 	}
 	n := 4
 
-	// Add 3 users to the queue
+	// Add 4 users to the queue
 	for i := 0; i < n; i++ {
 		u := NewUser(strconv.Itoa(i))
 		q := u.Queue("room")
@@ -227,5 +227,50 @@ func TestPopTrack_ConstantRotator(t *testing.T) {
 	if u, tr := r.PopTrack(); u != nil || tr.ID != "" {
 		t.Errorf("r.PopTrack = (%v, %v), want (%s, %s)", u, tr, nil, "empty track")
 	}
+}
 
+func TestPopTrack_ShuffleRotator(t *testing.T) {
+	r := &Room{
+		ID:          "room",
+		DisplayName: "Room",
+		Rotator:     &shuffleRotator{r: rand.New(rand.NewSource(0))},
+		users:       []*User{},
+		pending:     []*User{},
+		m:           &sync.RWMutex{},
+	}
+	// Add 2 users to the queue, ID "1" and ID "2"
+	for i := 1; i <= 2; i++ {
+		u := NewUser(strconv.Itoa(i))
+		q := u.Queue("room")
+		// Add 1,000 songs to each user's queue for this room
+		for j := 0; j < 1000; j++ {
+			q.AddTrack(music.Track{ID: strconv.Itoa(j)})
+		}
+
+		r.AddUser(u)
+	}
+
+	var u1, u2 float64
+
+	// Pop 1,000 tracks
+	for i := 0; i < 1000; i++ {
+		u, _ := r.PopTrack()
+		switch u.ID {
+		case "1":
+			u1++
+		case "2":
+			u2++
+		}
+	}
+
+	if diff := abs(u1-u2) / ((u1 + u2) / 2); diff >= 0.05 {
+		t.Errorf("diff between %d and %d = %f, want less than %f", u1, u2, diff, 0.2)
+	}
+}
+
+func abs(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

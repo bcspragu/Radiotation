@@ -4,10 +4,10 @@
     {{ $r := .Room }}
     {{ range $i, $track := .Queue.Tracks }}
       <div class="queue-track{{if lt $i $q.Offset}} played {{end}}">
-        <div href="#" class="thumbnail">
+        <div href="#" class="thumbnail update">
           <div class="album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}">
             {{if ge $i $q.Offset}}
-            <form class="add" action="/rooms/{{ $r.ID }}/add">
+            <form action="/rooms/{{ $r.ID }}/add">
               <a href="#"><span class="fa fa-remove"></span></a>
               <input type="hidden" name="id" value="{{ $track.ID }}"/>
             </form>

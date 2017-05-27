@@ -33,30 +33,37 @@
 {{ end }}
 
 {{ define "room-form" }}
-  <form class="room-form text-center" action="/rooms" method="POST">
-    <div>
-      <label for="room">Room Name</label>
-      <input type="text" name="room" class="room-name" placeholder="Room Name" value="{{ . }}">
-    </div>
+  <div class="container">
+    <form class="room-form" action="/rooms" method="POST">
+      <div class="row">
+        <div class="eight columns offset-by-two">
+          <label for="room">Room Name</label>
+          <input type="text" name="room" class="room-name u-full-width" placeholder="Room Name" value="{{ . }}">
+        </div>
+      </div>
 
-    <div>
-      <label for="music_source">Music Source</label>
-      <select name="music_source">
-        <!--<option value="gmusic">Google Play Music</option>-->
-        <option value="spotify">Spotify</option>
-      </select>
-    </div>
+      <div class="row">
+        <div class="four columns offset-by-two">
+          <label for="music_source">Music Source</label>
+          <select name="music_source" class="u-full-width">
+            <!--<option value="gmusic">Google Play Music</option>-->
+            <option value="spotify">Spotify</option>
+          </select>
+        </div>
+        <div class="four columns">
+          <label for="shuffle_order">Shuffle Order</label>
+          <select name="shuffle_order" class="u-full-width">
+            <option value="robin">Round Robin</option>
+            <option value="random">Random</option>
+          </select>
+        </div>
+      </div>
 
-    <div>
-      <label for="shuffle_order">Shuffle Order</label>
-      <select name="shuffle_order">
-        <option value="robin">Round Robin</option>
-        <option value="random">Random</option>
-      </select>
-    </div>
-
-    <div><button type="submit" class="button">Create Room</button></div>
-  </form>
+      <div class="row">
+        <button type="submit" class="button eight columns offset-by-two">Create Room</button>
+      </div>
+    </form>
+  </div>
 {{ end }}
 
 {{ define "track" }}

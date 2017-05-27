@@ -3,11 +3,11 @@
 {{ if .Tracks }}
   {{ range $i, $track := .Tracks }}
     <div class="search-track">
-      <div href="#" class="thumbnail">
+      <div href="#" class="thumbnail update">
         <div class="album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}">
-          <form class="add" action="/rooms/{{ $r.ID }}/add">
+          <form action="/rooms/{{ $r.ID }}/add">
             {{ if $q.HasTrack $track }}
-              <a href="#"><span class="fa fa-ok"></span></a>
+              <a href="#"><span class="fa fa-check"></span></a>
             {{ else }}
               <a href="#"><span class="fa fa-plus"></span></a>
             {{ end }}
