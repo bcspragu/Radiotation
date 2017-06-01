@@ -9,9 +9,21 @@ body {
   height: 100%;
 }
 
+#g-signin {
+  display: inline-block;
+}
+
 .update:hover {
   opacity: 0.75;
   cursor: pointer;
+}
+
+.now-playing {
+  display: -webkit-box;     /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box;        /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox;     /* TWEENER - IE 10 */
+  display: -webkit-flex;    /* NEW - Chrome */
+  display: flex;            /* NEW, Spec - Opera 12.1, Firefox 20+ */
 }
 
 .flexbox-wrapper { 
@@ -104,6 +116,13 @@ body {
   display: flex;
 
   min-height: 150px;
+  border-radius: 12px;
+}
+
+.now-album-art {
+  background-size: cover;
+  height: 150px;
+  width: 150px;
   border-radius: 12px;
 }
 

@@ -1,6 +1,7 @@
 var conn;
 
 $(function() {
+  renderButton();
   loadWebSockets();
 
   $('.search-form').submit(function(e) {
@@ -55,4 +56,36 @@ function loadWebSockets() {
   } else {
     // You ain't got WebSockets, brah
   }
+}
+
+function onSignIn(googleUser) {
+  var idToken = googleUser.getAuthResponse().id_token;
+  verifyToken(idToken);
+}
+
+function verifyToken(token, first, last) {
+  $.ajax({
+    url: '/verifyToken',
+    type: 'post',
+    data: {
+      token: token,
+    },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    success: function(data) {
+       console.log(data);
+    }
+  })
+}
+
+function renderButton() {
+  gapi.signin2.render('g-signin', {
+    'scope': 'profile email',
+    'width': 240,
+    'height': 50,
+    'theme': 'dark',
+    'onsuccess': onSignIn
+    //'onfailure': onFailure
+  });
 }

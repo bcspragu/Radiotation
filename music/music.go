@@ -34,7 +34,10 @@ type Image struct {
 }
 
 func (a *Album) Image() string {
-	return a.Images[0].URL
+	if len(a.Images) > 0 {
+		return a.Images[0].URL
+	}
+	return ""
 }
 
 func (t *Track) ArtistList() string {

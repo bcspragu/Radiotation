@@ -3,8 +3,8 @@ package main
 import (
 	"net/http"
 
+	"github.com/bcspragu/Radiotation/app"
 	"github.com/bcspragu/Radiotation/music"
-	"github.com/bcspragu/Radiotation/room"
 )
 
 func (s *srv) serveSearch(w http.ResponseWriter, r *http.Request) {
@@ -29,8 +29,8 @@ func (s *srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 	err = s.tmpls.ExecuteTemplate(w, "search.html", struct {
 		Host   string
 		Tracks []music.Track
-		Queue  *room.Queue
-		Room   *room.Room
+		Queue  *app.Queue
+		Room   *app.Room
 	}{
 		Host:   r.Host,
 		Tracks: tracks,

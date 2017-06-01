@@ -1,4 +1,4 @@
-package room
+package app
 
 import "github.com/bcspragu/Radiotation/music"
 

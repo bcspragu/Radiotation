@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bcspragu/Radiotation/room"
+	"github.com/bcspragu/Radiotation/app"
 	"github.com/gorilla/websocket"
 )
 
@@ -35,7 +35,7 @@ type connection struct {
 	// Buffered channel of outbound messages.
 	send chan []byte
 
-	user *room.User
+	user *app.User
 }
 
 // readPump pumps messages from the websocket connection to the hub.

@@ -1,4 +1,4 @@
-package room
+package app
 
 import (
 	"log"
@@ -82,7 +82,7 @@ func Shuffle() Rotator {
 	return &shuffleRotator{r: rand.New(rand.NewSource(time.Now().Unix()))}
 }
 
-type UserTrack struct {
+type userTrack struct {
 	user  *User
 	track music.Track
 }
@@ -95,7 +95,7 @@ type Room struct {
 
 	users   []*User
 	pending []*User
-	history []UserTrack
+	history []userTrack
 	m       *sync.RWMutex
 }
 
@@ -106,7 +106,7 @@ func New(name string) *Room {
 		SongServer:  spotify.NewSongServer("api.spotify.com"),
 		users:       []*User{},
 		pending:     []*User{},
-		history:     []UserTrack{},
+		history:     []userTrack{},
 		m:           &sync.RWMutex{},
 	}
 }
@@ -204,7 +204,7 @@ func (r *Room) PopTrack() (*User, music.Track) {
 		}
 
 		t := q.NextTrack()
-		r.history = append(r.history, UserTrack{
+		r.history = append(r.history, userTrack{
 			user:  u,
 			track: t,
 		})

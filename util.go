@@ -5,44 +5,29 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 
-	"github.com/bcspragu/Radiotation/room"
+	"github.com/bcspragu/Radiotation/app"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
-)
-
-var (
-	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
 
 func (s *srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := s.user(r); err != nil {
-			log.Printf("Unable to load user from request: %v", err)
-			s.createUser(w)
+			log.Printf("Unable to load user from request: %v --- Redirecting to login", err)
+			http.Redirect(w, r, "/", 302)
+			return
 		}
 
 		handler(w, r)
 	}
 }
 
-func (s *srv) createUser(w http.ResponseWriter) {
-	// If two people get the same ID randomly, I'll play Powerball more often
-
-	// Future you checking in, was just wondering if we check for collisions.
-	// Turns out we don't, but the above answer is very solid.
-	id := genName(64)
-	val := struct {
-		ID string
-	}{
-		ID: id,
-	}
-
-	if encoded, err := s.sc.Encode("login", val); err == nil {
+func (s *srv) createUser(w http.ResponseWriter, u *app.User) {
+	if encoded, err := s.sc.Encode("user", u); err == nil {
 		cookie := &http.Cookie{
-			Name:  "login",
+			Name:  "user",
 			Value: encoded,
 			Path:  "/",
 		}
@@ -52,9 +37,9 @@ func (s *srv) createUser(w http.ResponseWriter) {
 	}
 
 	// We've written the user, we can persist them now
-	log.Printf("Creating user with ID %s", id)
+	log.Printf("Creating user with ID %s", u.ID.String())
 	s.um.Lock()
-	s.users[id] = room.NewUser(id)
+	s.users[u.ID.String()] = u
 	s.um.Unlock()
 }
 
@@ -102,19 +87,11 @@ func servePaths() error {
 	return nil
 }
 
-func genName(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
-
 func roomID(r *http.Request) string {
-	return room.Normalize(mux.Vars(r)["id"])
+	return app.Normalize(mux.Vars(r)["id"])
 }
 
-func (s *srv) getRoom(r *http.Request) (*room.Room, error) {
+func (s *srv) getRoom(r *http.Request) (*app.Room, error) {
 	id := roomID(r)
 	s.rm.RLock()
 	rm, ok := s.rooms[id]
@@ -126,20 +103,20 @@ func (s *srv) getRoom(r *http.Request) (*room.Room, error) {
 	return rm, nil
 }
 
-func (s *srv) user(r *http.Request) (*room.User, error) {
-	cookie, err := r.Cookie("login")
+func (s *srv) user(r *http.Request) (*app.User, error) {
+	cookie, err := r.Cookie("user")
 
 	if err != nil {
 		return nil, fmt.Errorf("Error loading cookie, or no cookie found: %v", err)
 	}
 
-	value := struct{ ID string }{}
-	if err := s.sc.Decode("login", cookie.Value, &value); err != nil {
+	var u *app.User
+	if err := s.sc.Decode("user", cookie.Value, &u); err != nil {
 		return nil, fmt.Errorf("Error decoding cookie: %v", err)
 	}
 
 	s.um.RLock()
-	u, ok := s.users[value.ID]
+	u, ok := s.users[u.ID.String()]
 	s.um.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("User not found in system")

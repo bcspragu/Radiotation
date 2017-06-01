@@ -15,7 +15,7 @@ var stdout io.Reader
 var err error
 
 func main() {
-	gin = exec.Command("gin", "--appPort", "8000", "--port", "8080", "--filetype=go,html", "--excludeDir=.git,bower_components,node_modules", "--", "--env=development")
+	gin = exec.Command("gin", "--appPort", "8000", "--port", "8080", "--filetype=go,html", "--excludeDir=.git,bower_components,node_modules")
 
 	ginOut, err := gin.StdoutPipe()
 	if err != nil {

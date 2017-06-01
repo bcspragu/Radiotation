@@ -1,10 +1,9 @@
 {{ define "playing" }}
-  {{ range $i, $track := .Tracks }}
-    <div class="current-song">
-      <div href="#" class="thumbnail update">
-        <div class="album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}">
-      </div>
-      {{ template "track" $track }}
+  {{ range $i, $track := . }}
+    <div class="now-album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}"> </div>
+    <div class="track-info">
+      <div class="track-title">{{ .Name }}</div>
+      <div class="track-artist">{{ .ArtistList }}</div>
     </div>
   {{ end }}
 {{ end }}

@@ -1,32 +1,38 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/bcspragu/Radiotation/app"
 	"github.com/bcspragu/Radiotation/music"
-	"github.com/bcspragu/Radiotation/room"
+	"github.com/coreos/go-oidc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
+	"github.com/namsral/flag"
 )
 
 type tmplData struct {
 	Host string
-	Room *room.Room
+	Room *app.Room
+	User *app.User
 }
 
 type srv struct {
-	rooms map[string]*room.Room
+	rooms map[string]*app.Room
 	rm    *sync.RWMutex
 
-	users map[string]*room.User
+	users map[string]*app.User
 	um    *sync.RWMutex
 
 	tmpls *template.Template
@@ -35,16 +41,20 @@ type srv struct {
 }
 
 var (
-	addr = flag.String("addr", ":8000", "http service address")
-	env  = flag.String("env", "development", "the environment to run in")
+	_        = flag.String(flag.DefaultConfigFlagname, "config", "path to config file")
+	addr     = flag.String("addr", ":8000", "http service address")
+	clientID = flag.String("client_id", "", "The Google ClientID to use")
 
-	dev bool
+	googleVerifier *oidc.IDTokenVerifier
 )
 
 func main() {
 	rand.Seed(time.Now().Unix())
 	flag.Parse()
-	dev = *env == "development"
+
+	if *clientID == "" {
+		log.Fatalf("Missing required --client_id")
+	}
 
 	tmpls, err := template.ParseGlob("templates/*.html")
 	if err != nil {
@@ -56,9 +66,17 @@ func main() {
 		log.Fatalf("Can't load or generate keys, dying: %v", err)
 	}
 
+	googleProvider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
+	if err != nil {
+		log.Fatal("Failed to get provider for Google", err)
+	}
+	googleVerifier = googleProvider.Verifier(&oidc.Config{
+		ClientID: *clientID,
+	})
+
 	s := &srv{
-		rooms: make(map[string]*room.Room),
-		users: make(map[string]*room.User),
+		rooms: make(map[string]*app.Room),
+		users: make(map[string]*app.User),
 		rm:    &sync.RWMutex{},
 		um:    &sync.RWMutex{},
 		tmpls: tmpls,
@@ -68,13 +86,14 @@ func main() {
 			register:    make(chan *connection),
 			unregister:  make(chan *connection),
 			connections: make(map[*connection]bool),
-			userconns:   make(map[*room.User]*connection),
+			userconns:   make(map[*app.User]*connection),
 		},
 	}
 	go s.h.run()
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", s.withLogin(s.serveHome)).Methods("GET")
+	r.HandleFunc("/", s.serveHome).Methods("GET")
+	r.HandleFunc("/verifyToken", s.serveVerifyToken)
 	r.HandleFunc("/rooms", s.withLogin(s.createRoom)).Methods("POST")
 	r.HandleFunc("/rooms/{id}", s.withLogin(s.serveRoom)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
@@ -90,6 +109,16 @@ func main() {
 	if err := servePaths(); err != nil {
 		log.Fatalf("Can't serve static assets: %v", err)
 	}
+
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		// Got the signal to die, save some stuff first
+		if err := s.saveState("server-state"); err != nil {
+			log.Printf("Failed to save server state: %v", err)
+		}
+	}()
 
 	err = http.ListenAndServe(*addr, nil)
 	if err != nil {
@@ -179,8 +208,8 @@ func (s *srv) serveQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = s.tmpls.ExecuteTemplate(w, "queue.html", struct {
-		Queue *room.Queue
-		Room  *room.Room
+		Queue *app.Queue
+		Room  *app.Room
 	}{u.Queue(rm.ID), rm})
 	if err != nil {
 		log.Printf("Failed to execute queue template: %v", err)
@@ -195,9 +224,7 @@ func (s *srv) nowPlaying(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, t := rm.NowPlaying()
-	err = s.tmpls.ExecuteTemplate(w, "playing.html", struct {
-		Tracks []music.Track
-	}{[]music.Track{t}})
+	err = s.tmpls.ExecuteTemplate(w, "playing.html", []music.Track{t})
 
 	if err != nil {
 		log.Printf("Failed to execute queue template: %v", err)
@@ -231,7 +258,7 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 
 func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
 	dispName := r.PostFormValue("room")
-	id := room.Normalize(dispName)
+	id := app.Normalize(dispName)
 	s.rm.RLock()
 	_, ok := s.rooms[id]
 	s.rm.RUnlock()
@@ -242,12 +269,12 @@ func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add the new, non-existent room
-	rm := room.New(dispName)
+	rm := app.New(dispName)
 	switch r.PostFormValue("shuffle_order") {
 	case "robin":
-		rm.Rotator = room.RoundRobin()
+		rm.Rotator = app.RoundRobin()
 	case "random":
-		rm.Rotator = room.Shuffle()
+		rm.Rotator = app.Shuffle()
 	}
 
 	s.rm.Lock()
@@ -267,7 +294,7 @@ func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 			DisplayName string
 			ID          string
 			Host        string
-			Room        *room.Room
+			Room        *app.Room
 		}{mux.Vars(r)["id"], id, r.Host, nil})
 		if err != nil {
 			serveError(w, err)
@@ -287,20 +314,38 @@ func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 		rm.AddUser(u)
 	}
 
+	_, t := rm.NowPlaying()
+
 	err = s.tmpls.ExecuteTemplate(w, "room.html", struct {
-		Room  *room.Room
-		Queue *room.Queue
-		Host  string
-	}{rm, q, r.Host})
+		Room   *app.Room
+		Queue  *app.Queue
+		Tracks []music.Track
+		Host   string
+	}{rm, q, []music.Track{t}, r.Host})
 	if err != nil {
 		serveError(w, err)
 	}
 }
 
 func (s *srv) data(r *http.Request) *tmplData {
-	rm, _ := s.getRoom(r)
+	rm, err := s.getRoom(r)
+	if err != nil {
+		log.Printf("Failed to load room: %v", err)
+	}
+
+	user, err := s.user(r)
+	if err != nil {
+		log.Printf("Failed to load user: %v", err)
+	}
 	return &tmplData{
 		Host: r.Host,
 		Room: rm,
+		User: user,
 	}
+}
+
+func (s *srv) saveState(filename string) error {
+	// TODO: Implement this. You'll probably have to recursively implement some
+	// serialization for the nested/unexported fields
+	return nil
 }

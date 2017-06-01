@@ -1,15 +1,13 @@
 package main
 
-import (
-	"github.com/bcspragu/Radiotation/room"
-)
+import "github.com/bcspragu/Radiotation/app"
 
 // hub maintains the set of active connections and broadcasts messages to the
 // connections.
 type hub struct {
 	// Registered connections.
 	connections map[*connection]bool
-	userconns   map[*room.User]*connection
+	userconns   map[*app.User]*connection
 
 	// Inbound messages from the connections.
 	broadcast chan []byte

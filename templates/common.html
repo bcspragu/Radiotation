@@ -9,6 +9,7 @@
     <title>Radiotation</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="google-signin-client_id" content="990909845123-kj8p66a3ms0srgprhusp159kj0cfedvm.apps.googleusercontent.com">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css">
     <link rel="stylesheet" href="/css/main.css">
@@ -17,19 +18,6 @@
     <!--[if lt IE 7]>
       <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
     <![endif]-->
-{{ end }}
-
-{{ define "footer" }}
-    <script>
-      var host = '{{ .Host }}';
-      {{ if .Room }}
-        var room = '{{ .Room.ID }}';
-      {{ end }} 
-    </script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-    <script src="/js/main.js"></script>
-  </body>
-</html>
 {{ end }}
 
 {{ define "room-form" }}
@@ -71,4 +59,18 @@
     <div class="track-title">{{ .Name }}</div>
     <div class="track-artist">{{ .ArtistList }}</div>
   </div>
+{{ end }}
+
+{{ define "footer" }}
+    <script>
+      var host = '{{ .Host }}';
+      {{ if .Room }}
+        var room = '{{ .Room.ID }}';
+      {{ end }} 
+    </script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="/js/main.js"></script>
+  </body>
+</html>
 {{ end }}
