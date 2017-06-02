@@ -38,9 +38,9 @@ func (s *srv) createUser(w http.ResponseWriter, u *app.User) {
 
 	// We've written the user, we can persist them now
 	log.Printf("Creating user with ID %s", u.ID.String())
-	s.um.Lock()
-	s.users[u.ID.String()] = u
-	s.um.Unlock()
+	if err := s.db.AddUser(u); err != nil {
+		log.Printf("Failed to add user %+v: %v", u, err)
+	}
 }
 
 func serveError(w http.ResponseWriter, err error) {
@@ -115,11 +115,9 @@ func (s *srv) user(r *http.Request) (*app.User, error) {
 		return nil, fmt.Errorf("Error decoding cookie: %v", err)
 	}
 
-	s.um.RLock()
-	u, ok := s.users[u.ID.String()]
-	s.um.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("User not found in system")
+	u, err = s.db.User(u.ID)
+	if err != nil {
+		return nil, fmt.Errorf("User not found in system...probably: %v", err)
 	}
 
 	return u, nil

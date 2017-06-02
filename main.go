@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -29,11 +28,7 @@ type tmplData struct {
 }
 
 type srv struct {
-	rooms map[string]*app.Room
-	rm    *sync.RWMutex
-
-	users map[string]*app.User
-	um    *sync.RWMutex
+	db db
 
 	tmpls *template.Template
 	sc    *securecookie.SecureCookie
@@ -68,17 +63,19 @@ func main() {
 
 	googleProvider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
 	if err != nil {
-		log.Fatal("Failed to get provider for Google", err)
+		log.Fatalf("Failed to get provider for Google: %v", err)
 	}
 	googleVerifier = googleProvider.Verifier(&oidc.Config{
 		ClientID: *clientID,
 	})
 
+	db, err := initBoltDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize datastore: %v", err)
+	}
+
 	s := &srv{
-		rooms: make(map[string]*app.Room),
-		users: make(map[string]*app.User),
-		rm:    &sync.RWMutex{},
-		um:    &sync.RWMutex{},
+		db:    db,
 		tmpls: tmpls,
 		sc:    sc,
 		h: hub{
@@ -259,11 +256,13 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
 	dispName := r.PostFormValue("room")
 	id := app.Normalize(dispName)
-	s.rm.RLock()
-	_, ok := s.rooms[id]
-	s.rm.RUnlock()
+	exists, err := s.db.HasRoom(id)
+	if err != nil {
+		log.Printf("Failed to check for room: %v", err)
+		return
+	}
 	// If the room exists, take them to it
-	if ok {
+	if exists {
 		http.Redirect(w, r, "/rooms/"+id, 302)
 		return
 	}
@@ -277,9 +276,11 @@ func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
 		rm.Rotator = app.Shuffle()
 	}
 
-	s.rm.Lock()
-	s.rooms[id] = rm
-	s.rm.Unlock()
+	if err := s.db.AddRoom(rm); err != nil {
+		log.Printf("Failed to add room %+v: %v", rm, err)
+		return
+	}
+
 	http.Redirect(w, r, "/rooms/"+id, 302)
 
 }
