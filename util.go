@@ -93,11 +93,9 @@ func roomID(r *http.Request) string {
 
 func (s *srv) getRoom(r *http.Request) (*app.Room, error) {
 	id := roomID(r)
-	s.rm.RLock()
-	rm, ok := s.rooms[id]
-	s.rm.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("No room found for key %s", id)
+	rm, err := s.db.Room(id)
+	if err != nil {
+		return nil, fmt.Errorf("Error loading room with key %s: ", id, err)
 	}
 
 	return rm, nil

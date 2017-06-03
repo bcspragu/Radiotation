@@ -69,7 +69,8 @@ func main() {
 		ClientID: *clientID,
 	})
 
-	db, err := initBoltDB()
+	//db, err := initBoltDB()
+	db, err := initInMemDB()
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
@@ -256,13 +257,13 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
 	dispName := r.PostFormValue("room")
 	id := app.Normalize(dispName)
-	exists, err := s.db.HasRoom(id)
-	if err != nil {
+	room, err := s.db.Room(id)
+	if err != nil && err != errRoomNotFound {
 		log.Printf("Failed to check for room: %v", err)
 		return
 	}
 	// If the room exists, take them to it
-	if exists {
+	if room != nil {
 		http.Redirect(w, r, "/rooms/"+id, 302)
 		return
 	}

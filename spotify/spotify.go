@@ -6,21 +6,48 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/bcspragu/Radiotation/music"
 )
 
 type spotifySongServer struct {
 	apiEndpoint string
+	tr          *tokenRefresher
 }
 
 type spotifyResponse struct {
 	Tracks music.Tracks
 }
 
-func NewSongServer(apiEndpoint string) music.SongServer {
-	return &spotifySongServer{
+type tokenRefresher struct {
+	clientID string
+	secret   string
+	tkn      string
+	exp      time.Time
+}
+
+func (tr *tokenRefresher) token() string {
+	if !tr.exp.IsZero() && time.Now().Sub(tr.exp) > 0 {
+		return tr.tkn
+	}
+	return tr.getToken()
+}
+
+func (tr *tokenRefresher) getToken() string {
+	url := fmt.Sprintf("http://%s/v1/api/token", s.apiEndpoint)
+	req := http.NewRequest(http.MethodPost, url, nil)
+	req.SetBasicAuth(tr.clientID, tr.secret)
+	http.DefaultClient.Do(req)
+}
+
+func NewSongServer(apiEndpoint, clientID, secret string) music.SongServer {
+	s := &spotifySongServer{
 		apiEndpoint: apiEndpoint,
+		tr: &tokenRefresher{
+			clientID: clientID,
+			secret:   secret,
+		},
 	}
 }
 
