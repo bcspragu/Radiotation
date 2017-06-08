@@ -95,7 +95,7 @@ func (s *srv) getRoom(r *http.Request) (*app.Room, error) {
 	id := roomID(r)
 	rm, err := s.db.Room(id)
 	if err != nil {
-		return nil, fmt.Errorf("Error loading room with key %s: ", id, err)
+		return nil, fmt.Errorf("Error loading room with key %s: %v", id, err)
 	}
 
 	return rm, nil

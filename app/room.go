@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/bcspragu/Radiotation/music"
-	"github.com/bcspragu/Radiotation/spotify"
 )
 
 var (
@@ -99,11 +98,11 @@ type Room struct {
 	m       *sync.RWMutex
 }
 
-func New(name string) *Room {
+func New(name string, ss music.SongServer) *Room {
 	return &Room{
 		DisplayName: name,
 		ID:          Normalize(name),
-		SongServer:  spotify.NewSongServer("api.spotify.com"),
+		SongServer:  ss,
 		users:       []*User{},
 		pending:     []*User{},
 		history:     []userTrack{},

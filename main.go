@@ -8,13 +8,11 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/bcspragu/Radiotation/app"
 	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/spotify"
 	"github.com/coreos/go-oidc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
@@ -36,9 +34,13 @@ type srv struct {
 }
 
 var (
-	_        = flag.String(flag.DefaultConfigFlagname, "config", "path to config file")
-	addr     = flag.String("addr", ":8000", "http service address")
-	clientID = flag.String("client_id", "", "The Google ClientID to use")
+	_             = flag.String(flag.DefaultConfigFlagname, "config", "path to config file")
+	addr          = flag.String("addr", ":8000", "http service address")
+	clientID      = flag.String("client_id", "", "The Google ClientID to use")
+	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
+	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
+
+	spotifyServer music.SongServer
 
 	googleVerifier *oidc.IDTokenVerifier
 )
@@ -47,9 +49,11 @@ func main() {
 	rand.Seed(time.Now().Unix())
 	flag.Parse()
 
-	if *clientID == "" {
-		log.Fatalf("Missing required --client_id")
+	if *clientID == "" || *spotifyClient == "" || *spotifySecret == "" {
+		log.Fatalf("Missing a required flag, all of  --client_id, --spotify_client_id, and --spotify_secret are required.")
 	}
+
+	spotifyServer = spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret)
 
 	tmpls, err := template.ParseGlob("templates/*.html")
 	if err != nil {
@@ -107,16 +111,6 @@ func main() {
 	if err := servePaths(); err != nil {
 		log.Fatalf("Can't serve static assets: %v", err)
 	}
-
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		// Got the signal to die, save some stuff first
-		if err := s.saveState("server-state"); err != nil {
-			log.Printf("Failed to save server state: %v", err)
-		}
-	}()
 
 	err = http.ListenAndServe(*addr, nil)
 	if err != nil {
@@ -269,7 +263,7 @@ func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add the new, non-existent room
-	rm := app.New(dispName)
+	rm := app.New(dispName, spotifyServer)
 	switch r.PostFormValue("shuffle_order") {
 	case "robin":
 		rm.Rotator = app.RoundRobin()
@@ -344,10 +338,4 @@ func (s *srv) data(r *http.Request) *tmplData {
 		Room: rm,
 		User: user,
 	}
-}
-
-func (s *srv) saveState(filename string) error {
-	// TODO: Implement this. You'll probably have to recursively implement some
-	// serialization for the nested/unexported fields
-	return nil
 }
