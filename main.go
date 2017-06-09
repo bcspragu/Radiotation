@@ -21,9 +21,10 @@ import (
 )
 
 type tmplData struct {
-	Host string
-	Room *app.Room
-	User *app.User
+	ClientID string
+	Host     string
+	Room     *app.Room
+	User     *app.User
 }
 
 type srv struct {
@@ -220,9 +221,9 @@ func (s *srv) serveQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = s.tmpls.ExecuteTemplate(w, "queue.html", struct {
+		*tmplData
 		Queue *app.Queue
-		Room  *app.Room
-	}{q, rm})
+	}{s.data(r), q})
 	if err != nil {
 		log.Printf("Failed to execute queue template: %v", err)
 	}
@@ -317,11 +318,10 @@ func (s *srv) serveNewRoom(w http.ResponseWriter, r *http.Request) {
 	log.Printf("No room found with ID %s", id)
 
 	err := s.tmpls.ExecuteTemplate(w, "new_room.html", struct {
+		*tmplData
 		DisplayName string
 		ID          string
-		Host        string
-		Room        *app.Room
-	}{mux.Vars(r)["id"], id, r.Host, nil})
+	}{s.data(r), mux.Vars(r)["id"], id})
 	if err != nil {
 		serveError(w, err)
 	}
@@ -353,11 +353,10 @@ func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 	t := s.nowPlaying(rm.ID)
 
 	err = s.tmpls.ExecuteTemplate(w, "room.html", struct {
-		Room   *app.Room
+		*tmplData
 		Queue  *app.Queue
 		Tracks []music.Track
-		Host   string
-	}{rm, q, []music.Track{t}, r.Host})
+	}{s.data(r), q, []music.Track{t}})
 	if err != nil {
 		serveError(w, err)
 	}
@@ -374,8 +373,9 @@ func (s *srv) data(r *http.Request) *tmplData {
 		log.Printf("Failed to load user: %v", err)
 	}
 	return &tmplData{
-		Host: r.Host,
-		Room: rm,
-		User: user,
+		ClientID: *clientID,
+		Host:     r.Host,
+		Room:     rm,
+		User:     user,
 	}
 }

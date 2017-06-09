@@ -72,6 +72,10 @@ function onSignIn(googleUser) {
   verifyToken(idToken);
 }
 
+function onFailure(err) {
+  console.log(err);
+}
+
 function verifyToken(token, first, last) {
   $.ajax({
     url: '/verifyToken',
@@ -94,7 +98,7 @@ function renderButton() {
     'width': 240,
     'height': 50,
     'theme': 'dark',
-    'onsuccess': onSignIn
-    //'onfailure': onFailure
+    'onsuccess': onSignIn,
+    'onfailure': onFailure
   });
 }
