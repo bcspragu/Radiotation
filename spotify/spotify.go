@@ -32,7 +32,7 @@ type tokenRefresher struct {
 }
 
 func (s *spotifySongServer) token() string {
-	remain := time.Now().Sub(s.tr.exp)
+	remain := s.tr.exp.Sub(time.Now())
 	if !s.tr.exp.IsZero() && remain > s.tr.threshold {
 		log.Printf("Loading cached token, expires in %s", remain.String())
 		return s.tr.tkn
