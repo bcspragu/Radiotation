@@ -20,7 +20,7 @@ $(function() {
       } else {
         icon.toggleClass('fa-check');
         icon.toggleClass('fa-plus');
-        $('.queue').load('/rooms/' + room + '/queue');
+        reloadQueue(true);
         reloadResults();
       }
     });
@@ -35,6 +35,15 @@ function reloadResults() {
   }
 }
 
+function reloadQueue(scroll) {
+  $('.queue').load('/rooms/' + room + '/queue', function() {
+    if (scroll) {
+      var q = $('.queue').get(0);
+      q.scrollLeft = q.scrollWidth;
+    }
+  });
+}
+
 function loadWebSockets() {
   if (window["WebSocket"] && typeof(room) !== 'undefined' && room != '') {
     conn = new WebSocket("ws://" + host + "/rooms/" + room + "/ws");
@@ -43,7 +52,7 @@ function loadWebSockets() {
     }
     conn.onmessage = function(evt) {
       if (evt.data === "pop") {
-        $('.queue').load('/rooms/' + room + '/queue');
+        reloadQueue(false);
         reloadResults();
         return;
       }
