@@ -46,7 +46,7 @@ function reloadQueue(scroll) {
 
 function loadWebSockets() {
   if (window["WebSocket"] && typeof(room) !== 'undefined' && room != '') {
-    conn = new WebSocket("ws://" + host + "/rooms/" + room + "/ws");
+    conn = new WebSocket("wss://" + host + "/ws");
     conn.onclose = function(evt) {
       // Something
     }
