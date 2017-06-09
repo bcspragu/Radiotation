@@ -7,8 +7,8 @@
         <div href="#" class="thumbnail update">
           <div class="album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}">
             {{if ge $i $q.Offset}}
-            <form action="/rooms/{{ $r.ID }}/add">
-              <a href="#"><span class="fa fa-remove"></span></a>
+            <form action="/rooms/{{ $r.ID }}/remove">
+              <a href="#"><span class="action-icon fa fa-remove"></span></a>
               <input type="hidden" name="id" value="{{ $track.ID }}"/>
             </form>
             {{ end }}

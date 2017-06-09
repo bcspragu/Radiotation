@@ -20,7 +20,13 @@ func (s *srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tracks, err := rm.SongServer.Search(r.FormValue("search"))
+	tracks, err := songServer(rm).Search(r.FormValue("search"))
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+
+	q, err := s.db.Queue(rm.ID, u.ID)
 	if err != nil {
 		serveError(w, err)
 		return
@@ -34,7 +40,7 @@ func (s *srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 	}{
 		Host:   r.Host,
 		Tracks: tracks,
-		Queue:  u.Queue(rm.ID),
+		Queue:  q,
 		Room:   rm,
 	})
 	if err != nil {

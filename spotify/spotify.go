@@ -4,12 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -65,13 +63,11 @@ func (s *spotifySongServer) getToken() string {
 	}
 	defer resp.Body.Close()
 
-	r := io.TeeReader(resp.Body, os.Stdout)
-
 	var tkn struct {
 		AccessToken string `json:"access_token"`
 		ExpiresIn   int    `json:"expires_in"`
 	}
-	err = json.NewDecoder(r).Decode(&tkn)
+	err = json.NewDecoder(resp.Body).Decode(&tkn)
 	if err != nil {
 		log.Println(err)
 		return ""

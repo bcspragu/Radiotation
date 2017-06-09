@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/bcspragu/Radiotation/app"
@@ -26,6 +27,9 @@ type tmplData struct {
 }
 
 type srv struct {
+	sync.RWMutex
+	pendingUsers map[string][]app.ID
+
 	db db
 
 	tmpls *template.Template
@@ -40,9 +44,10 @@ var (
 	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
 	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
 
-	spotifyServer music.SongServer
-
+	spotifyServer  music.SongServer
 	googleVerifier *oidc.IDTokenVerifier
+
+	errNoTracks = errors.New("radiotation: no tracks in room")
 )
 
 func main() {
@@ -80,9 +85,10 @@ func main() {
 	}
 
 	s := &srv{
-		db:    db,
-		tmpls: tmpls,
-		sc:    sc,
+		pendingUsers: make(map[string][]app.ID),
+		db:           db,
+		tmpls:        tmpls,
+		sc:           sc,
 		h: hub{
 			broadcast:   make(chan []byte),
 			register:    make(chan *connection),
@@ -96,11 +102,11 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", s.serveHome).Methods("GET")
 	r.HandleFunc("/verifyToken", s.serveVerifyToken)
-	r.HandleFunc("/rooms", s.withLogin(s.createRoom)).Methods("POST")
+	r.HandleFunc("/rooms", s.withLogin(s.serveCreateRoom)).Methods("POST")
 	r.HandleFunc("/rooms/{id}", s.withLogin(s.serveRoom)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/queue", s.withLogin(s.serveQueue)).Methods("GET")
-	r.HandleFunc("/rooms/{id}/now", s.withLogin(s.nowPlaying)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/now", s.withLogin(s.serveNowPlaying)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
 	r.HandleFunc("/rooms/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
 	r.HandleFunc("/rooms/{id}/pop", s.withLogin(s.serveSong)).Methods("GET")
@@ -163,20 +169,28 @@ func (s *srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 		return
 	}
 
-	track, err := rm.SongServer.Track(r.FormValue("id"))
+	track, err := songServer(rm).Track(r.FormValue("id"))
 	if err != nil {
 		jsonErr(w, err)
 		return
 	}
 
-	q := u.Queue(rm.ID)
 	if remove {
-		q.RemoveTrack(track)
+		s.db.RemoveTrackFromQueue(rm.ID, u.ID, track)
 	} else {
-		q.AddTrack(track)
+		s.db.AddTrackToQueue(rm.ID, u.ID, track)
 	}
 
 	json.NewEncoder(w).Encode(QueueResponse{})
+}
+
+func songServer(rm *app.Room) music.SongServer {
+	switch rm.MusicService {
+	case app.Spotify:
+		return spotifyServer
+	default:
+		return nil
+	}
 }
 
 func jsonErr(w http.ResponseWriter, err error) {
@@ -199,25 +213,31 @@ func (s *srv) serveQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	q, err := s.db.Queue(rm.ID, u.ID)
+	if err != nil {
+		log.Printf("Couldn't load queue: %v", err)
+		return
+	}
+
 	err = s.tmpls.ExecuteTemplate(w, "queue.html", struct {
 		Queue *app.Queue
 		Room  *app.Room
-	}{u.Queue(rm.ID), rm})
+	}{q, rm})
 	if err != nil {
 		log.Printf("Failed to execute queue template: %v", err)
 	}
 }
 
-func (s *srv) nowPlaying(w http.ResponseWriter, r *http.Request) {
+func (s *srv) serveNowPlaying(w http.ResponseWriter, r *http.Request) {
 	rm, err := s.getRoom(r)
 	if err != nil {
 		log.Printf("Couldn't load room: %v", err)
 		return
 	}
 
-	_, t := rm.NowPlaying()
-	err = s.tmpls.ExecuteTemplate(w, "playing.html", []music.Track{t})
+	t := s.nowPlaying(rm.ID)
 
+	err = s.tmpls.ExecuteTemplate(w, "playing.html", []music.Track{t})
 	if err != nil {
 		log.Printf("Failed to execute queue template: %v", err)
 	}
@@ -231,12 +251,20 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !rm.HasTracks() {
+	u, t, err := s.PopTrack(rm.ID)
+	if err == errNoTracks {
 		jsonErr(w, errors.New("No tracks to choose from"))
+		return
+	} else if err != nil {
+		log.Printf("Couldn't pop track: %v", err)
 		return
 	}
 
-	u, t := rm.PopTrack()
+	err = s.db.AddToHistory(rm.ID, u.ID, t)
+	if err != nil {
+		log.Printf("Failed to add track to history for room %s, moving on: %v", rm.ID, err)
+	}
+
 	// Let the user know we're playing their track
 	if c, ok := s.h.userconns[u]; ok {
 		c.send <- []byte("pop")
@@ -248,53 +276,62 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *srv) createRoom(w http.ResponseWriter, r *http.Request) {
+func (s *srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
 	dispName := r.PostFormValue("room")
 	id := app.Normalize(dispName)
-	room, err := s.db.Room(id)
-	if err != nil && err != errRoomNotFound {
+
+	_, err := s.db.Room(id)
+	if err == errRoomNotFound {
+		s.createRoom(dispName, r.PostFormValue("shuffle_order"))
+	} else if err != nil {
 		log.Printf("Failed to check for room: %v", err)
 		return
 	}
-	// If the room exists, take them to it
-	if room != nil {
-		http.Redirect(w, r, "/rooms/"+id, 302)
-		return
-	}
+
+	// If we're here, the room exists now
+	http.Redirect(w, r, "/rooms/"+id, 302)
+}
+
+func (s *srv) createRoom(name, rotator string) {
+	log.Printf("Creating room %s, with shuffle order %s", name, rotator)
 
 	// Add the new, non-existent room
-	rm := app.New(dispName, spotifyServer)
-	switch r.PostFormValue("shuffle_order") {
+	rm := app.New(name, app.Spotify)
+	switch rotator {
 	case "robin":
-		rm.Rotator = app.RoundRobin()
+		rm.Rotator = app.NewRotator(app.RoundRobin)
+	case "shuffle":
+		rm.Rotator = app.NewRotator(app.Shuffle)
 	case "random":
-		rm.Rotator = app.Shuffle()
+		rm.Rotator = app.NewRotator(app.Random)
 	}
 
 	if err := s.db.AddRoom(rm); err != nil {
 		log.Printf("Failed to add room %+v: %v", rm, err)
 		return
 	}
+}
 
-	http.Redirect(w, r, "/rooms/"+id, 302)
+func (s *srv) serveNewRoom(w http.ResponseWriter, r *http.Request) {
+	id := roomID(r)
+	log.Printf("No room found with ID %s", id)
 
+	err := s.tmpls.ExecuteTemplate(w, "new_room.html", struct {
+		DisplayName string
+		ID          string
+		Host        string
+		Room        *app.Room
+	}{mux.Vars(r)["id"], id, r.Host, nil})
+	if err != nil {
+		serveError(w, err)
+	}
+	return
 }
 
 func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 	rm, err := s.getRoom(r)
-	id := roomID(r)
 	if err != nil {
-		log.Printf("No room found with ID %s", id)
-
-		err := s.tmpls.ExecuteTemplate(w, "new_room.html", struct {
-			DisplayName string
-			ID          string
-			Host        string
-			Room        *app.Room
-		}{mux.Vars(r)["id"], id, r.Host, nil})
-		if err != nil {
-			serveError(w, err)
-		}
+		s.serveNewRoom(w, r)
 		return
 	}
 
@@ -304,13 +341,16 @@ func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := u.Queue(id)
-	if !rm.HasUser(u) {
+	q, err := s.db.Queue(rm.ID, u.ID)
+	if err == errQueueNotFound {
 		log.Printf("Adding user %s to room %s", u.ID, rm.ID)
-		rm.AddUser(u)
+		s.AddUser(rm.ID, u.ID)
+	} else if err != nil {
+		serveError(w, err)
+		return
 	}
 
-	_, t := rm.NowPlaying()
+	t := s.nowPlaying(rm.ID)
 
 	err = s.tmpls.ExecuteTemplate(w, "room.html", struct {
 		Room   *app.Room

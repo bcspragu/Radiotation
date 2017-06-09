@@ -1,112 +1,181 @@
 package app
 
 import (
+	"bytes"
+	"encoding/gob"
 	"log"
 	"math/rand"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/bcspragu/Radiotation/music"
 )
 
 var (
 	nameRE = regexp.MustCompile(`[^a-zA-Z0-9\-]+`)
 )
 
+func init() {
+	gob.Register(roundRobinRotator{})
+	gob.Register(shuffleRotator{})
+	gob.Register(randomRotator{})
+}
+
+type MusicService int
+
+const (
+	PlayMusic MusicService = iota
+	Spotify
+)
+
+func (m MusicService) String() string {
+	switch m {
+	case PlayMusic:
+		return "Play Music"
+	case Spotify:
+		return "Spotify"
+	}
+	return "Unknown"
+}
+
+type RotatorType int
+
+const (
+	RoundRobin RotatorType = iota
+	Shuffle
+	Random
+)
+
+func (r RotatorType) String() string {
+	switch r {
+	case RoundRobin:
+		return "Round Robin"
+	case Shuffle:
+		return "Shuffle"
+	case Random:
+		return "Random"
+	}
+	return "Unknown"
+}
+
+func NewRotator(r RotatorType) Rotator {
+	switch r {
+	case RoundRobin:
+		return &roundRobinRotator{}
+	case Shuffle:
+		return &shuffleRotator{R: rand.New(rand.NewSource(time.Now().Unix()))}
+	case Random:
+		return &randomRotator{R: rand.New(rand.NewSource(time.Now().Unix()))}
+	default:
+		return nil
+	}
+}
+
 // A Rotator says what the next index should be from a list of size n. They can
 // assume that n will never decrease, but it can increase between any two
-// invocations.
+// invocations of start.
 type Rotator interface {
-	// nextIndex returns the next index in the current rotation, and if this is
+	// NextIndex returns the next index in the current rotation, and if this is
 	// the last entry in the current rotation
-	nextIndex() (int, bool)
-	// start takes the size of the current rotation and should be called before
+	NextIndex() (int, bool)
+	// Start takes the size of the current rotation and should be called before
 	// we do our first rotation, and after each subsequent rotation is over
-	start(n int)
+	Start(n int)
+}
+
+type randomRotator struct {
+	N int
+	R *rand.Rand
+}
+
+func LoadRotator(b []byte) Rotator {
+	// The decode will fail unless the concrete type on the wire has been
+	// registered. We registered it in the calling function.
+	var r Rotator
+	err := gob.NewDecoder(bytes.NewReader(b)).Decode(&r)
+	if err != nil {
+		log.Printf("decode rotator: %v", err)
+	}
+	return r
+}
+
+func SaveRotator(r Rotator) []byte {
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(&r)
+	if err != nil {
+		log.Printf("encode rotator: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func (r *randomRotator) NextIndex() (int, bool) {
+	if r.N == 0 {
+		return 0, true
+	}
+	return r.R.Intn(r.N), true
+}
+
+func (r *randomRotator) Start(n int) {
+	r.N = n
 }
 
 type shuffleRotator struct {
-	shuffleList []int
-	index       int
-	r           *rand.Rand
+	ShuffleList []int
+	Index       int
+	R           *rand.Rand
 }
 
-func (s *shuffleRotator) nextIndex() (int, bool) {
-	if len(s.shuffleList) == 0 {
+func (s *shuffleRotator) NextIndex() (int, bool) {
+	if len(s.ShuffleList) == 0 {
 		return 0, true
 	}
 
-	if s.index >= len(s.shuffleList) {
+	if s.Index >= len(s.ShuffleList) {
 		// Keep returning the last element if we've gone too far
-		return s.shuffleList[len(s.shuffleList)-1], true
+		return s.ShuffleList[len(s.ShuffleList)-1], true
 	}
 
-	i := s.shuffleList[s.index]
-	s.index++
-	return i, s.index == len(s.shuffleList)
+	i := s.ShuffleList[s.Index]
+	s.Index++
+	return i, s.Index == len(s.ShuffleList)
 }
 
-func (s *shuffleRotator) start(n int) {
-	s.shuffleList = s.r.Perm(n)
-	s.index = 0
+func (s *shuffleRotator) Start(n int) {
+	s.ShuffleList = s.R.Perm(n)
+	s.Index = 0
 }
 
-type constantRotator struct {
-	offset int
-	n      int
+type roundRobinRotator struct {
+	Offset int
+	N      int
 }
 
-func (c *constantRotator) nextIndex() (int, bool) {
-	if c.n == 0 {
+func (r *roundRobinRotator) NextIndex() (int, bool) {
+	if r.N == 0 {
 		return 0, true
 	}
 
-	i := c.offset
-	c.offset = (c.offset + 1) % c.n
-	return i, c.offset == 0
+	i := r.Offset
+	r.Offset = (r.Offset + 1) % r.N
+	return i, r.Offset == 0
 }
 
-func (c *constantRotator) start(n int) {
-	c.offset = 0
-	c.n = n
-}
-
-func RoundRobin() Rotator {
-	return &constantRotator{}
-}
-
-func Shuffle() Rotator {
-	return &shuffleRotator{r: rand.New(rand.NewSource(time.Now().Unix()))}
-}
-
-type userTrack struct {
-	user  *User
-	track music.Track
+func (r *roundRobinRotator) Start(n int) {
+	r.Offset = 0
+	r.N = n
 }
 
 type Room struct {
-	ID          string
-	DisplayName string
-	Rotator     Rotator
-	SongServer  music.SongServer
-
-	users   []*User
-	pending []*User
-	history []userTrack
-	m       *sync.RWMutex
+	ID           string
+	DisplayName  string
+	Rotator      Rotator
+	MusicService MusicService
 }
 
-func New(name string, ss music.SongServer) *Room {
+func New(name string, ms MusicService) *Room {
 	return &Room{
-		DisplayName: name,
-		ID:          Normalize(name),
-		SongServer:  ss,
-		users:       []*User{},
-		pending:     []*User{},
-		history:     []userTrack{},
-		m:           &sync.RWMutex{},
+		DisplayName:  name,
+		ID:           Normalize(name),
+		MusicService: ms,
 	}
 }
 
@@ -123,97 +192,4 @@ func Normalize(name string) string {
 	name = strings.Replace(name, " ", "-", -1)
 	name = strings.Replace(name, "_", "-", -1)
 	return nameRE.ReplaceAllString(name, "")
-}
-
-func (r *Room) HasUser(user *User) bool {
-	r.m.Lock()
-	defer r.m.Unlock()
-	for _, u := range r.users {
-		if u.ID == user.ID {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Room) AddUser(user *User) {
-	r.m.Lock()
-	defer r.m.Unlock()
-	for _, u := range r.users {
-		if u.ID == user.ID {
-			log.Printf("User %s is already in room %s", user.ID, r.ID)
-			return
-		}
-	}
-
-	// Add a user at the end of the queue.
-	if len(r.users) == 0 {
-		r.users = append(r.users, user)
-		r.Rotator.start(len(r.users))
-		return
-	}
-
-	// Add the user to the end of our pending queue, we'll add them in once we
-	// finish our current rotation.
-	r.pending = append(r.pending, user)
-}
-
-func (r *Room) HasTracks() bool {
-	for _, u := range r.users {
-		if u.Queue(r.ID).HasTracks() {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Room) NowPlaying() (*User, music.Track) {
-	r.m.RLock()
-	defer r.m.RUnlock()
-	if len(r.history) == 0 {
-		return nil, music.Track{}
-	}
-	ut := r.history[len(r.history)-1]
-	return ut.user, ut.track
-}
-
-func (r *Room) PopTrack() (*User, music.Track) {
-	r.m.Lock()
-	defer r.m.Unlock()
-	for i := 0; i < len(r.users); i++ {
-		idx, last := r.Rotator.nextIndex()
-		if last {
-			r.addPending()
-			r.Rotator.start(len(r.users))
-		}
-
-		if idx >= len(r.users) {
-			log.Printf("Rotator is broken, returned index %d for list of %d users", idx, len(r.users))
-			return nil, music.Track{}
-		}
-
-		u := r.users[idx]
-		if u == nil {
-			continue
-		}
-
-		q := u.Queue(r.ID)
-		if !q.HasTracks() {
-			continue
-		}
-
-		t := q.NextTrack()
-		r.history = append(r.history, userTrack{
-			user:  u,
-			track: t,
-		})
-
-		return u, t
-	}
-	return nil, music.Track{}
-}
-
-func (r *Room) addPending() {
-	r.users = append(r.users, r.pending...)
-	r.pending = []*User{}
 }

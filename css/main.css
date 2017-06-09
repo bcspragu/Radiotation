@@ -24,6 +24,8 @@ body {
   display: -ms-flexbox;     /* TWEENER - IE 10 */
   display: -webkit-flex;    /* NEW - Chrome */
   display: flex;            /* NEW, Spec - Opera 12.1, Firefox 20+ */
+  align-items: center;
+  border-top: 5px solid black;
 }
 
 .flexbox-wrapper { 
@@ -90,8 +92,8 @@ body {
 
 .queue-holder {
   background-color: #FAFAFA;
-  min-height: 160px;
-  margin-bottom: 12px;
+  min-height: 85px;
+  margin-bottom: 6px;
 }
 
 .queue {
@@ -106,24 +108,25 @@ body {
 
 .results {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  overflow-x: hidden;
 }
 
 .album-art {
   background-size: cover;
   display: flex;
 
-  min-height: 150px;
-  border-radius: 12px;
+  height: 50px;
+  width: 50px;
+  border-radius: 6px;
+  margin: 0 auto;
 }
 
 .now-album-art {
   background-size: cover;
-  height: 150px;
-  width: 150px;
-  border-radius: 12px;
+  height: 75px;
+  width: 75px;
+  border-radius: 6px;
 }
 
 .album-art form {
@@ -133,11 +136,25 @@ body {
   font-size: 48px;
 }
 
-.search-track, .queue-track {
-  width: 150px;
-  min-width: 150px;
+.search-track {
+  display: flex;
+  align-items: center;
+}
+
+.track-info {
+  flex: 1;
   text-align: center;
-  margin: 0 10px;
+  min-width: 0px;
+}
+
+.action-icon {
+  display: none;
+}
+
+.track-artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .track-title {
@@ -156,4 +173,49 @@ body {
 
 .queue-track img, .search-track img {
   height: 100px;
+}
+
+.queue-track {
+  margin-right: 24px;
+  width: 120px;
+}
+
+@media (min-width: 400px) {
+  .results {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .search-track, .queue-track {
+    display: block;
+    width: 150px;
+    min-width: 150px;
+    text-align: center;
+    margin: 0 10px;
+  }
+
+  .action-icon {
+    display: inline-block;
+  }
+
+  .album-art {
+    background-size: cover;
+    display: flex;
+
+    min-height: 150px;
+    width: 150px;
+    border-radius: 12px;
+  }
+
+  .now-album-art {
+    height: 150px;
+    width: 150px;
+    border-radius: 12px;
+  }
+
+  .queue-holder {
+    min-height: 160px;
+    margin-bottom: 12px;
+  }
 }

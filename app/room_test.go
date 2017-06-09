@@ -2,11 +2,7 @@ package app
 
 import (
 	"math/rand"
-	"strconv"
-	"sync"
 	"testing"
-
-	"github.com/bcspragu/Radiotation/music"
 )
 
 func TestNormalize(t *testing.T) {
@@ -31,240 +27,133 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-func TestConstantRotator_Empty(t *testing.T) {
-	r := &constantRotator{}
+func TestRoundRobinRotator_Empty(t *testing.T) {
+	r := &roundRobinRotator{}
 
 	r.start(0)
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 0, true)
 
 	r.start(0)
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 0, true)
 }
 
-func TestConstantRotator(t *testing.T) {
-	r := &constantRotator{}
+func TestRoundRobinRotator(t *testing.T) {
+	r := &roundRobinRotator{}
 
 	r.start(1)
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 0, true)
 
 	r.start(2)
-	if idx, last := r.nextIndex(); idx != 0 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, true)
-	}
+	tryNext(t, r, 0, false)
+	tryNext(t, r, 1, true)
 
 	r.start(3)
-	if idx, last := r.nextIndex(); idx != 0 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
-	if idx, last := r.nextIndex(); idx != 2 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, true)
-	}
+	tryNext(t, r, 0, false)
+	tryNext(t, r, 1, false)
+	tryNext(t, r, 2, true)
 
 	r.start(4)
-	if idx, last := r.nextIndex(); idx != 0 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
+	tryNext(t, r, 0, false)
+	tryNext(t, r, 1, false)
 	// Restart in middle
 	r.start(4)
-	if idx, last := r.nextIndex(); idx != 0 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
-	if idx, last := r.nextIndex(); idx != 2 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, false)
-	}
-	if idx, last := r.nextIndex(); idx != 3 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 3, true)
-	}
+	tryNext(t, r, 0, false)
+	tryNext(t, r, 1, false)
+	tryNext(t, r, 2, false)
+	tryNext(t, r, 3, true)
 }
 
 func TestShuffleRotator_Empty(t *testing.T) {
-	r := &shuffleRotator{r: rand.New(rand.NewSource(0))}
+	r := &shuffleRotator{R: rand.New(rand.NewSource(0))}
 
 	r.start(0)
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 0, true)
 
 	r.start(0)
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 0, true)
 }
 
 func TestShuffleRotator(t *testing.T) {
-	r := &shuffleRotator{r: rand.New(rand.NewSource(0))}
+	r := &shuffleRotator{R: rand.New(rand.NewSource(0))}
 	r.start(1)
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 0, true)
 
-	r = &shuffleRotator{r: rand.New(rand.NewSource(0))}
+	r = &shuffleRotator{R: rand.New(rand.NewSource(0))}
 	r.start(2)
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 1, false)
+	tryNext(t, r, 0, true)
 
-	r = &shuffleRotator{r: rand.New(rand.NewSource(0))}
+	r = &shuffleRotator{R: rand.New(rand.NewSource(0))}
 	r.start(3)
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
-	if idx, last := r.nextIndex(); idx != 2 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, false)
-	}
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 1, false)
+	tryNext(t, r, 2, false)
+	tryNext(t, r, 0, true)
 
-	r = &shuffleRotator{r: rand.New(rand.NewSource(3))}
+	r = &shuffleRotator{R: rand.New(rand.NewSource(3))}
 	r.start(4)
-	if idx, last := r.nextIndex(); idx != 2 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 2, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
+	tryNext(t, r, 2, false)
+	tryNext(t, r, 1, false)
 	// Restart in middle
-	r = &shuffleRotator{r: rand.New(rand.NewSource(3))}
+	r = &shuffleRotator{R: rand.New(rand.NewSource(3))}
 	r.start(4)
-	if idx, last := r.nextIndex(); idx != 2 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, false)
-	}
-	if idx, last := r.nextIndex(); idx != 1 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 1, false)
-	}
-	if idx, last := r.nextIndex(); idx != 3 || last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 3, false)
-	}
-	if idx, last := r.nextIndex(); idx != 0 || !last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", idx, last, 0, true)
-	}
+	tryNext(t, r, 2, false)
+	tryNext(t, r, 1, false)
+	tryNext(t, r, 3, false)
+	tryNext(t, r, 0, true)
 }
 
-func TestPopTrack_ConstantRotator(t *testing.T) {
-	r := &Room{
-		ID:          "room",
-		DisplayName: "Room",
-		Rotator:     &constantRotator{},
-		users:       []*User{},
-		pending:     []*User{},
-		m:           &sync.RWMutex{},
-	}
-	n := 4
+func TestRandomRotator_Empty(t *testing.T) {
+	r := &randomRotator{R: rand.New(rand.NewSource(0))}
 
-	// Add 4 users to the queue
-	for i := 0; i < n; i++ {
-		u := NewUser(strconv.Itoa(i))
-		q := u.Queue("room")
-		// Add i+1 songs to this user's queue for this room
-		for j := 0; j < i+1; j++ {
-			q.AddTrack(music.Track{ID: strconv.Itoa(j)})
-		}
+	r.start(0)
+	tryNext(t, r, 0, true)
 
-		r.AddUser(u)
-	}
-
-	// First rotation, exhaust User 0s only song
-	if u, tr := r.PopTrack(); u.ID != "0" || tr.ID != "0" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "0", "0")
-	}
-	if u, tr := r.PopTrack(); u.ID != "1" || tr.ID != "0" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "1", "0")
-	}
-	if u, tr := r.PopTrack(); u.ID != "2" || tr.ID != "0" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "2", "0")
-	}
-	if u, tr := r.PopTrack(); u.ID != "3" || tr.ID != "0" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "3", "0")
-	}
-
-	// Second rotation, exhaust User 1s last song
-	if u, tr := r.PopTrack(); u.ID != "1" || tr.ID != "1" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "1", "1")
-	}
-	if u, tr := r.PopTrack(); u.ID != "2" || tr.ID != "1" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "2", "1")
-	}
-	if u, tr := r.PopTrack(); u.ID != "3" || tr.ID != "1" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "3", "1")
-	}
-
-	// Third rotation, exhaust User 2s last song
-	if u, tr := r.PopTrack(); u.ID != "2" || tr.ID != "2" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "2", "2")
-	}
-	if u, tr := r.PopTrack(); u.ID != "3" || tr.ID != "2" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "3", "2")
-	}
-
-	// Last rotation, exhaust User 3s last song
-	if u, tr := r.PopTrack(); u.ID != "3" || tr.ID != "3" {
-		t.Errorf("r.PopTrack = (%s, %s), want (%s, %s)", u.ID, tr.ID, "3", "3")
-	}
-
-	// Make sure it returns garbage when we run out
-	if u, tr := r.PopTrack(); u != nil || tr.ID != "" {
-		t.Errorf("r.PopTrack = (%v, %v), want (%s, %s)", u, tr, nil, "empty track")
-	}
+	r.start(0)
+	tryNext(t, r, 0, true)
 }
 
-func TestPopTrack_ShuffleRotator(t *testing.T) {
-	r := &Room{
-		ID:          "room",
-		DisplayName: "Room",
-		Rotator:     &shuffleRotator{r: rand.New(rand.NewSource(0))},
-		users:       []*User{},
-		pending:     []*User{},
-		m:           &sync.RWMutex{},
-	}
-	// Add 2 users to the queue, ID "1" and ID "2"
-	for i := 1; i <= 2; i++ {
-		u := NewUser(strconv.Itoa(i))
-		q := u.Queue("room")
-		// Add 1,000 songs to each user's queue for this room
-		for j := 0; j < 1000; j++ {
-			q.AddTrack(music.Track{ID: strconv.Itoa(j)})
-		}
+func TestRandomRotator(t *testing.T) {
+	r := &randomRotator{R: rand.New(rand.NewSource(0))}
 
-		r.AddUser(u)
+	for i := 0; i < 10; i++ {
+		r.start(1)
+		tryNext(t, r, 0, true)
 	}
 
-	var u1, u2 float64
+	r = &randomRotator{R: rand.New(rand.NewSource(0))}
+	r.start(2)
+	tryNext(t, r, 0, true)
+	tryNext(t, r, 0, true)
+	r.start(2)
+	tryNext(t, r, 1, true)
+	tryNext(t, r, 0, true)
 
-	// Pop 1,000 tracks
-	for i := 0; i < 1000; i++ {
-		u, _ := r.PopTrack()
-		switch u.ID {
-		case "1":
-			u1++
-		case "2":
-			u2++
-		}
-	}
+	r = &randomRotator{R: rand.New(rand.NewSource(0))}
+	r.start(3)
+	tryNext(t, r, 0, true)
+	tryNext(t, r, 0, true)
+	tryNext(t, r, 1, true)
+	r.start(3)
+	tryNext(t, r, 1, true)
+	tryNext(t, r, 2, true)
+	tryNext(t, r, 1, true)
 
-	if diff := abs(u1-u2) / ((u1 + u2) / 2); diff >= 0.05 {
-		t.Errorf("diff between %d and %d = %f, want less than %f", u1, u2, diff, 0.2)
+	r = &randomRotator{R: rand.New(rand.NewSource(3))}
+	r.start(4)
+	tryNext(t, r, 0, true)
+	tryNext(t, r, 1, true)
+	// Restart in middle
+	r = &randomRotator{R: rand.New(rand.NewSource(3))}
+	r.start(4)
+	tryNext(t, r, 0, true)
+	tryNext(t, r, 1, true)
+	tryNext(t, r, 0, true)
+	tryNext(t, r, 2, true)
+}
+
+func tryNext(t *testing.T, r Rotator, idx int, last bool) {
+	if i, l := r.nextIndex(); i != idx || l != last {
+		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", i, l, idx, false)
 	}
 }
 
