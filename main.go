@@ -110,7 +110,7 @@ func main() {
 	r.HandleFunc("/rooms/{id}/now", s.withLogin(s.serveNowPlaying)).Methods("GET")
 	r.HandleFunc("/rooms/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
 	r.HandleFunc("/rooms/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
-	r.HandleFunc("/rooms/{id}/pop", s.withLogin(s.serveSong)).Methods("GET")
+	r.HandleFunc("/rooms/{id}/pop", s.serveSong).Methods("GET")
 	r.HandleFunc("/ws", s.withLogin(s.serveData))
 
 	http.Handle("/", r)
