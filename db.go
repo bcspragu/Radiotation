@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/gob"
 	"errors"
+	"io"
 	"sync"
 	"time"
 
@@ -21,16 +23,19 @@ var (
 )
 
 type uqueue struct {
-	id app.ID
-	q  *app.Queue
+	ID app.ID
+	Q  *app.Queue
 }
 
 type utrack struct {
-	id app.ID
-	t  music.Track
+	ID app.ID
+	T  music.Track
 }
 
 type db interface {
+	Load(io.Reader) error
+	Save(io.Writer) error
+
 	Room(id string) (*app.Room, error)
 	AddRoom(room *app.Room) error
 	Users(roomID string) ([]*app.User, error)
@@ -58,6 +63,42 @@ type memDBImpl struct {
 	queues map[string][]*uqueue
 	// Map from roomID -> list of (uid, track) pairs
 	history map[string][]*utrack
+}
+
+type memData struct {
+	Rooms   map[string]*app.Room
+	Users   map[app.ID]*app.User
+	Queues  map[string][]*uqueue
+	History map[string][]*utrack
+}
+
+func (m *memDBImpl) Load(r io.Reader) error {
+	md := &memData{}
+	if err := gob.NewDecoder(r).Decode(md); err != nil {
+		return err
+	}
+
+	m.rooms = md.Rooms
+	m.users = md.Users
+	m.queues = md.Queues
+	m.history = md.History
+	return nil
+}
+
+func (m *memDBImpl) Save(w io.Writer) error {
+	m.Lock()
+	defer m.Unlock()
+	md := &memData{
+		Rooms:   m.rooms,
+		Users:   m.users,
+		Queues:  m.queues,
+		History: m.history,
+	}
+	if err := gob.NewEncoder(w).Encode(md); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *memDBImpl) Room(id string) (*app.Room, error) {
@@ -93,7 +134,7 @@ func (m *memDBImpl) Users(roomID string) ([]*app.User, error) {
 
 	us := []*app.User{}
 	for _, uq := range qs {
-		us = append(us, m.users[uq.id])
+		us = append(us, m.users[uq.ID])
 	}
 	return us, nil
 }
@@ -130,8 +171,8 @@ func (m *memDBImpl) Queue(roomID string, userID app.ID) (*app.Queue, error) {
 	}
 
 	for _, uq := range qs {
-		if uq.id == userID {
-			return uq.q, nil
+		if uq.ID == userID {
+			return uq.Q, nil
 		}
 	}
 
@@ -147,8 +188,8 @@ func (m *memDBImpl) AddTrackToQueue(roomID string, userID app.ID, track music.Tr
 	}
 
 	for _, uq := range qs {
-		if uq.id == userID {
-			uq.q.Tracks = append(uq.q.Tracks, track)
+		if uq.ID == userID {
+			uq.Q.Tracks = append(uq.Q.Tracks, track)
 			return nil
 		}
 	}
@@ -165,10 +206,10 @@ func (m *memDBImpl) RemoveTrackFromQueue(roomID string, userID app.ID, track mus
 	}
 
 	for _, uq := range qs {
-		if uq.id == userID {
-			for i, t := range uq.q.Tracks {
-				if t.ID == track.ID && i >= uq.q.Offset {
-					uq.q.Tracks = append(uq.q.Tracks[:i], uq.q.Tracks[i+1:]...)
+		if uq.ID == userID {
+			for i, t := range uq.Q.Tracks {
+				if t.ID == track.ID && i >= uq.Q.Offset {
+					uq.Q.Tracks = append(uq.Q.Tracks[:i], uq.Q.Tracks[i+1:]...)
 					return nil
 				}
 			}
@@ -182,7 +223,7 @@ func (m *memDBImpl) AddUserToRoom(roomID string, userID app.ID) error {
 	m.Lock()
 	defer m.Unlock()
 	qs := m.queues[roomID]
-	m.queues[roomID] = append(qs, &uqueue{id: userID, q: &app.Queue{}})
+	m.queues[roomID] = append(qs, &uqueue{ID: userID, Q: &app.Queue{}})
 	return nil
 }
 
@@ -195,7 +236,7 @@ func (m *memDBImpl) UserInRoom(roomID string, userID app.ID) (bool, error) {
 	}
 
 	for _, uq := range qs {
-		if uq.id == userID {
+		if uq.ID == userID {
 			return true, nil
 		}
 	}
@@ -205,7 +246,7 @@ func (m *memDBImpl) UserInRoom(roomID string, userID app.ID) (bool, error) {
 func (m *memDBImpl) AddToHistory(roomID string, userID app.ID, track music.Track) error {
 	m.Lock()
 	defer m.Unlock()
-	m.history[roomID] = append(m.history[roomID], &utrack{id: userID, t: track})
+	m.history[roomID] = append(m.history[roomID], &utrack{ID: userID, T: track})
 	return nil
 }
 
@@ -214,7 +255,7 @@ func (m *memDBImpl) History(roomID string) ([]music.Track, error) {
 	defer m.RUnlock()
 	ts := make([]music.Track, len(m.history[roomID]))
 	for i, ut := range m.history[roomID] {
-		ts[i] = ut.t
+		ts[i] = ut.T
 	}
 	return ts, nil
 }
@@ -249,6 +290,14 @@ func initBoltDB() (db, error) {
 	})
 
 	return &boltDBImpl{bdb}, err
+}
+
+func (b *boltDBImpl) Load(io.Reader) error {
+	return errOperationNotImplemented
+}
+
+func (b *boltDBImpl) Save(io.Writer) error {
+	return errOperationNotImplemented
 }
 
 func (b *boltDBImpl) Room(id string) (*app.Room, error) {

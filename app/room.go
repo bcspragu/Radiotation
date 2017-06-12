@@ -14,10 +14,17 @@ var (
 	nameRE = regexp.MustCompile(`[^a-zA-Z0-9\-]+`)
 )
 
+type Room struct {
+	ID           string
+	DisplayName  string
+	Rotator      Rotator
+	MusicService MusicService
+}
+
 func init() {
-	gob.Register(roundRobinRotator{})
-	gob.Register(shuffleRotator{})
-	gob.Register(randomRotator{})
+	gob.Register(&roundRobinRotator{})
+	gob.Register(&shuffleRotator{})
+	gob.Register(&randomRotator{})
 }
 
 type MusicService int
@@ -162,13 +169,6 @@ func (r *roundRobinRotator) NextIndex() (int, bool) {
 func (r *roundRobinRotator) Start(n int) {
 	r.Offset = 0
 	r.N = n
-}
-
-type Room struct {
-	ID           string
-	DisplayName  string
-	Rotator      Rotator
-	MusicService MusicService
 }
 
 func New(name string, ms MusicService) *Room {

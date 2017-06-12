@@ -1,5 +1,10 @@
 package app
 
+type User struct {
+	ID          ID
+	First, Last string
+}
+
 type AccountType int
 
 func (a AccountType) String() string {
@@ -24,11 +29,6 @@ type ID struct {
 
 func (id ID) String() string {
 	return id.AccountType.String() + ":" + id.ID
-}
-
-type User struct {
-	ID          ID
-	First, Last string
 }
 
 func GoogleUser(id, first, last string) *User {

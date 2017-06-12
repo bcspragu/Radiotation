@@ -8,6 +8,8 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
 	"time"
 
@@ -29,8 +31,6 @@ type tmplData struct {
 
 type srv struct {
 	sync.RWMutex
-	pendingUsers map[string][]app.ID
-
 	db db
 
 	tmpls *template.Template
@@ -84,12 +84,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
+	f, err := os.Open("inmem.db")
+	if err != nil && !os.IsNotExist(err) {
+		// A legitimate error, not just 'the file wasn't found'
+		log.Fatalf("Failed to open datastore file for reading: %v", err)
+	}
+
+	if err == nil {
+		if err := db.Load(f); err != nil {
+			f.Close()
+			log.Fatalf("Failed to load datastore: %v", err)
+		}
+	}
+	f.Close()
 
 	s := &srv{
-		pendingUsers: make(map[string][]app.ID),
-		db:           db,
-		tmpls:        tmpls,
-		sc:           sc,
+		db:    db,
+		tmpls: tmpls,
+		sc:    sc,
 		h: hub{
 			broadcast:   make(chan []byte),
 			register:    make(chan *connection),
@@ -118,6 +130,24 @@ func main() {
 	if err := servePaths(); err != nil {
 		log.Fatalf("Can't serve static assets: %v", err)
 	}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		f, err := os.Create("inmem.db")
+		if err != nil && !os.IsExist(err) {
+			// A legitimate error, not just 'the file was found'
+			log.Fatalf("Failed to open datastore file for writing: %v", err)
+		}
+		if err := s.db.Save(f); err != nil {
+			log.Fatalf("Failed to save datastore: %v", err)
+		}
+		if err := f.Close(); err != nil {
+			log.Fatalf("Failed to close datastore file: %v", err)
+		}
+		os.Exit(1)
+	}()
 
 	err = http.ListenAndServe(*addr, nil)
 	if err != nil {
