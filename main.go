@@ -84,7 +84,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
-	f, err := os.Open("inmem.db")
+	f, err := os.Open("inmemdb")
 	if err != nil && !os.IsNotExist(err) {
 		// A legitimate error, not just 'the file wasn't found'
 		log.Fatalf("Failed to open datastore file for reading: %v", err)
@@ -135,7 +135,7 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		f, err := os.Create("inmem.db")
+		f, err := os.Create("inmemdb")
 		if err != nil && !os.IsExist(err) {
 			// A legitimate error, not just 'the file was found'
 			log.Fatalf("Failed to open datastore file for writing: %v", err)
