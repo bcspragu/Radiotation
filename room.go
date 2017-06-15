@@ -25,7 +25,7 @@ func (s *srv) nowPlaying(roomID string) music.Track {
 	return music.Track{}
 }
 
-func (s *srv) PopTrack(roomID string) (*app.User, music.Track, error) {
+func (s *srv) popTrack(roomID string) (*app.User, music.Track, error) {
 	r, err := s.db.Room(roomID)
 	if err != nil {
 		return nil, music.Track{}, err

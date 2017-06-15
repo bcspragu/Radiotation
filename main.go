@@ -10,34 +10,33 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/bcspragu/Radiotation/app"
 	"github.com/bcspragu/Radiotation/music"
 	"github.com/bcspragu/Radiotation/spotify"
-	"github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/namsral/flag"
 )
 
-type tmplData struct {
-	ClientID string
-	Host     string
-	Room     *app.Room
-	User     *app.User
-}
+type (
+	tmplData struct {
+		ClientID string
+		Host     string
+		Room     *app.Room
+		User     *app.User
+	}
 
-type srv struct {
-	sync.RWMutex
-	db db
-
-	tmpls *template.Template
-	sc    *securecookie.SecureCookie
-	h     hub
-}
+	srv struct {
+		*template.Template
+		db db
+		sc *securecookie.SecureCookie
+		h  hub
+	}
+)
 
 var (
 	_             = flag.String(flag.DefaultConfigFlagname, "config", "path to config file")
@@ -100,9 +99,9 @@ func main() {
 	f.Close()
 
 	s := &srv{
-		db:    db,
-		tmpls: tmpls,
-		sc:    sc,
+		Template: tmpls,
+		db:       db,
+		sc:       sc,
 		h: hub{
 			broadcast:   make(chan []byte),
 			register:    make(chan *connection),
@@ -157,7 +156,7 @@ func main() {
 }
 
 func (s *srv) serveHome(w http.ResponseWriter, r *http.Request) {
-	if err := s.tmpls.ExecuteTemplate(w, "index.html", s.data(r)); err != nil {
+	if err := s.ExecuteTemplate(w, "index.html", s.data(r)); err != nil {
 		serveError(w, err)
 	}
 }
@@ -251,7 +250,7 @@ func (s *srv) serveQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.tmpls.ExecuteTemplate(w, "queue.html", struct {
+	err = s.ExecuteTemplate(w, "queue.html", struct {
 		*tmplData
 		Queue *app.Queue
 	}{s.data(r), q})
@@ -269,7 +268,7 @@ func (s *srv) serveNowPlaying(w http.ResponseWriter, r *http.Request) {
 
 	t := s.nowPlaying(rm.ID)
 
-	err = s.tmpls.ExecuteTemplate(w, "playing.html", []music.Track{t})
+	err = s.ExecuteTemplate(w, "playing.html", []music.Track{t})
 	if err != nil {
 		log.Printf("Failed to execute queue template: %v", err)
 	}
@@ -283,7 +282,7 @@ func (s *srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, t, err := s.PopTrack(rm.ID)
+	u, t, err := s.popTrack(rm.ID)
 	if err == errNoTracks {
 		jsonErr(w, errors.New("No tracks to choose from"))
 		return
@@ -348,7 +347,7 @@ func (s *srv) serveNewRoom(w http.ResponseWriter, r *http.Request) {
 	id := roomID(r)
 	log.Printf("No room found with ID %s", id)
 
-	err := s.tmpls.ExecuteTemplate(w, "new_room.html", struct {
+	err := s.ExecuteTemplate(w, "new_room.html", struct {
 		*tmplData
 		DisplayName string
 		ID          string
@@ -383,11 +382,52 @@ func (s *srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 
 	t := s.nowPlaying(rm.ID)
 
-	err = s.tmpls.ExecuteTemplate(w, "room.html", struct {
+	err = s.ExecuteTemplate(w, "room.html", struct {
 		*tmplData
 		Queue  *app.Queue
 		Tracks []music.Track
 	}{s.data(r), q, []music.Track{t}})
+	if err != nil {
+		serveError(w, err)
+	}
+}
+
+func (s *srv) serveSearch(w http.ResponseWriter, r *http.Request) {
+	rm, err := s.getRoom(r)
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+
+	u, err := s.user(r)
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+
+	tracks, err := songServer(rm).Search(r.FormValue("search"))
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+
+	q, err := s.db.Queue(rm.ID, u.ID)
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+
+	err = s.ExecuteTemplate(w, "search.html", struct {
+		Host   string
+		Tracks []music.Track
+		Queue  *app.Queue
+		Room   *app.Room
+	}{
+		Host:   r.Host,
+		Tracks: tracks,
+		Queue:  q,
+		Room:   rm,
+	})
 	if err != nil {
 		serveError(w, err)
 	}

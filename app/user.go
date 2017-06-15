@@ -1,11 +1,23 @@
 package app
 
-type User struct {
-	ID          ID
-	First, Last string
-}
+type (
+	AccountType int
 
-type AccountType int
+	ID struct {
+		AccountType AccountType
+		ID          string
+	}
+
+	User struct {
+		ID          ID
+		First, Last string
+	}
+)
+
+const (
+	GoogleAccount AccountType = iota
+	FacebookAccount
+)
 
 func (a AccountType) String() string {
 	switch a {
@@ -15,16 +27,6 @@ func (a AccountType) String() string {
 		return "Facebook"
 	}
 	return "Unknown"
-}
-
-const (
-	GoogleAccount AccountType = iota
-	FacebookAccount
-)
-
-type ID struct {
-	AccountType AccountType
-	ID          string
 }
 
 func (id ID) String() string {

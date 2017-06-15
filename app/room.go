@@ -14,12 +14,17 @@ var (
 	nameRE = regexp.MustCompile(`[^a-zA-Z0-9\-]+`)
 )
 
-type Room struct {
-	ID           string
-	DisplayName  string
-	Rotator      Rotator
-	MusicService MusicService
-}
+type (
+	MusicService int
+	RotatorType  int
+
+	Room struct {
+		ID           string
+		DisplayName  string
+		Rotator      Rotator
+		MusicService MusicService
+	}
+)
 
 func init() {
 	gob.Register(&roundRobinRotator{})
@@ -27,11 +32,15 @@ func init() {
 	gob.Register(&randomRotator{})
 }
 
-type MusicService int
-
 const (
 	PlayMusic MusicService = iota
 	Spotify
+)
+
+const (
+	RoundRobin RotatorType = iota
+	Shuffle
+	Random
 )
 
 func (m MusicService) String() string {
@@ -43,14 +52,6 @@ func (m MusicService) String() string {
 	}
 	return "Unknown"
 }
-
-type RotatorType int
-
-const (
-	RoundRobin RotatorType = iota
-	Shuffle
-	Random
-)
 
 func (r RotatorType) String() string {
 	switch r {
