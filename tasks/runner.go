@@ -6,16 +6,27 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"strconv"
 	"strings"
+
+	"github.com/namsral/flag"
 )
 
-var kill = make(chan struct{})
-var gin *exec.Cmd
-var stdout io.Reader
-var err error
+var (
+	kill = make(chan struct{})
+
+	port, appPort int
+	gin           *exec.Cmd
+	stdout        io.Reader
+	err           error
+)
 
 func main() {
-	gin = exec.Command("gin", "--appPort", "8000", "--port", "8080", "--filetype=go,html", "--excludeDir=.git,bower_components,node_modules")
+	flag.IntVar(&appPort, "app_port", 8000, "The port to run the backend on")
+	flag.IntVar(&port, "port", 8080, "The port to run gin on and to use in the browser")
+	flag.Parse()
+
+	gin = exec.Command("gin", "--appPort", strconv.Itoa(appPort), "--port", strconv.Itoa(port), "--filetype=go", "--excludeDir=.git,bower_components,node_modules,frontend")
 
 	ginOut, err := gin.StdoutPipe()
 	if err != nil {
@@ -42,7 +53,7 @@ func restart() {
 		<-kill
 		fmt.Println("Killing and restarting")
 		gin.Process.Kill()
-		gin = exec.Command("gin", "--appPort", "8000", "--port", "8080", "--filetype=go,html", "--exclude=.git,bower_components,node_modules")
+		gin = exec.Command("gin", "--appPort", strconv.Itoa(appPort), "--port", strconv.Itoa(port), "--filetype=go,html", "--excludeDir=.git,bower_components,node_modules")
 		stdout, err = gin.StdoutPipe()
 		if err != nil {
 			log.Fatal(err)

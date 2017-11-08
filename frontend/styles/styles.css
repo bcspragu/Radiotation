@@ -1,0 +1,221 @@
+html {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#g-signin {
+  display: inline-block;
+}
+
+.update:hover {
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.now-playing {
+  display: -webkit-box;     /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box;        /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox;     /* TWEENER - IE 10 */
+  display: -webkit-flex;    /* NEW - Chrome */
+  display: flex;            /* NEW, Spec - Opera 12.1, Firefox 20+ */
+  align-items: center;
+  border-top: 5px solid black;
+}
+
+.flexbox-wrapper { 
+  height: 100%;
+  display: -webkit-box;     /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box;        /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox;     /* TWEENER - IE 10 */
+  display: -webkit-flex;    /* NEW - Chrome */
+  display: flex;            /* NEW, Spec - Opera 12.1, Firefox 20+ */
+  -ms-flex-flow: column nowrap;
+  -webkit-flex-flow: column nowrap;
+  flex-flow: column nowrap;
+  -webkit-align-content: stretch;
+  -ms-flex-line-pack: stretch;
+  align-content: stretch;
+}
+
+.flexbox-row {
+  width: 100%;
+}
+
+.flexbox-row-fill {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 2;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.search-label {
+  margin-top: 8px;
+}
+
+/* Larger than mobile */
+@media (min-width: 400px) {
+  .search-label {
+    text-align: right;
+  }
+}
+
+.how-it-works {
+  margin-left: 2em;
+}
+
+.room-form input {
+  display: inline;
+}
+
+.room-form label {
+  display: inline;
+  margin-right: 1em;
+}
+
+.page-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.played {
+  opacity: 0.2
+}
+
+.queue-holder {
+  background-color: #FAFAFA;
+  min-height: 85px;
+  margin-bottom: 6px;
+}
+
+.queue {
+  display: flex;
+  flex-direction: row;
+  overflow: auto;
+
+  margin-top: 12px;
+  margin-left: 12px;
+  padding-bottom: 16px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.album-art {
+  background-size: cover;
+  display: flex;
+
+  height: 50px;
+  width: 50px;
+  border-radius: 6px;
+  margin: 0 auto;
+}
+
+.now-album-art {
+  background-size: cover;
+  height: 75px;
+  width: 75px;
+  border-radius: 6px;
+}
+
+.album-art form {
+  flex: 1;
+  align-self: center;
+
+  font-size: 48px;
+}
+
+.search-track {
+  display: flex;
+  align-items: center;
+}
+
+.track-info {
+  flex: 1;
+  text-align: center;
+  min-width: 0px;
+}
+
+.action-icon {
+  display: none;
+}
+
+.track-artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.track-artist {
+  margin-top: -4px;
+  font-size: 10px;
+}
+
+.queue-track img, .search-track img {
+  height: 100px;
+}
+
+.queue-track {
+  margin-right: 24px;
+  width: 120px;
+}
+
+@media (min-width: 400px) {
+  .results {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .search-track, .queue-track {
+    display: block;
+    width: 150px;
+    min-width: 150px;
+    text-align: center;
+    margin: 0 10px;
+  }
+
+  .action-icon {
+    display: inline-block;
+  }
+
+  .album-art {
+    background-size: cover;
+    display: flex;
+
+    min-height: 150px;
+    width: 150px;
+    border-radius: 12px;
+  }
+
+  .now-album-art {
+    height: 150px;
+    width: 150px;
+    border-radius: 12px;
+  }
+
+  .queue-holder {
+    min-height: 160px;
+    margin-bottom: 12px;
+  }
+}

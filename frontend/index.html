@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title><%- htmlWebpackPlugin.options.metadata.title %></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <base href="<%- htmlWebpackPlugin.options.metadata.baseUrl %>">
+    <link href="http://localhost:8080/assets/styles.css" rel="stylesheet">
+  </head>
+  <body aurelia-app="main">
+    <div class="message">loading</div>
+    <!-- Webpack Dev Server reload -->
+    <% if (htmlWebpackPlugin.options.metadata.ENV === 'development') { %>
+    <!-- Webpack Dev Server reload -->
+    <script src="http://localhost:8080/webpack-dev-server.js"></script>
+    <% } %>
+    <script src="http://localhost:8080/assets/aurelia-bootstrap.bundle.js"></script>
+    <script src="http://localhost:8080/assets/aurelia.bundle.js"></script>
+    <script src="http://localhost:8080/assets/app.bundle.js"></script>
+  </body>
+</html>
