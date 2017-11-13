@@ -1,11 +1,11 @@
-package main
+package srv
 
 import (
 	"context"
 	"log"
 	"net/http"
 
-	"github.com/bcspragu/Radiotation/app"
+	"github.com/bcspragu/Radiotation/db"
 	oidc "github.com/coreos/go-oidc"
 )
 
@@ -30,7 +30,7 @@ func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the token is good, store the information in the user's encrypted cookie
-	u := app.GoogleUser(ti.Subject, name.First, name.Last)
+	u := db.GoogleUser(ti.Subject, name.First, name.Last)
 	s.createUser(w, u)
 	w.Write([]byte("success"))
 }

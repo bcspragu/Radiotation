@@ -1,13 +1,14 @@
-package main
+package hub
 
-import "github.com/bcspragu/Radiotation/db"
+import (
+	"github.com/gorilla/websocket"
+)
 
-// hub maintains the set of active connections and broadcasts messages to the
+// Hub maintains the set of active connections and broadcasts messages to the
 // connections.
-type hub struct {
+type Hub struct {
 	// Registered connections.
 	connections map[*connection]bool
-	userconns   map[*db.User]*connection
 
 	// Inbound messages from the connections.
 	broadcast chan []byte
@@ -19,15 +20,22 @@ type hub struct {
 	unregister chan *connection
 }
 
-func (h *hub) run() {
+func New() *Hub {
+	return &Hub{
+		broadcast:   make(chan []byte),
+		register:    make(chan *connection),
+		unregister:  make(chan *connection),
+		connections: make(map[*connection]bool),
+	}
+}
+
+func (h *Hub) run() {
 	for {
 		select {
 		case c := <-h.register:
 			h.connections[c] = true
-			h.userconns[c.user] = c
 		case c := <-h.unregister:
 			if _, ok := h.connections[c]; ok {
-				delete(h.userconns, c.user)
 				delete(h.connections, c)
 				close(c.send)
 			}
@@ -42,4 +50,12 @@ func (h *hub) run() {
 			}
 		}
 	}
+}
+
+// Register associates a connection with the hub.
+func (h *Hub) Register(ws *websocket.Conn) {
+	conn := &connection{h: h, send: make(chan []byte, 256), ws: ws}
+	h.register <- conn
+	go conn.writePump()
+	go conn.readPump()
 }

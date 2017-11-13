@@ -1,10 +1,8 @@
-package main
+package hub
 
 import (
-	"net/http"
 	"time"
 
-	"github.com/bcspragu/Radiotation/db"
 	"github.com/gorilla/websocket"
 )
 
@@ -22,29 +20,20 @@ const (
 	maxMessageSize = 512
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 // connection is an middleman between the websocket connection and the hub.
 type connection struct {
+	h *Hub
 	// The websocket connection.
 	ws *websocket.Conn
 
 	// Buffered channel of outbound messages.
 	send chan []byte
-
-	user *db.User
 }
 
 // readPump pumps messages from the websocket connection to the hub.
-func (c *connection) readPump(s *srv) {
+func (c *connection) readPump() {
 	defer func() {
-		s.h.unregister <- c
+		c.h.unregister <- c
 		c.ws.Close()
 	}()
 	c.ws.SetReadLimit(maxMessageSize)
@@ -89,24 +78,4 @@ func (c *connection) writePump() {
 			}
 		}
 	}
-}
-
-// serveData handles websocket requests from the peer trying to connect
-func (s *srv) serveData(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		serveError(w, err)
-		return
-	}
-
-	u, err := s.user(r)
-	if err != nil {
-		serveError(w, err)
-		return
-	}
-
-	conn := &connection{send: make(chan []byte, 256), ws: ws, user: u}
-	s.h.register <- conn
-	go conn.writePump()
-	conn.readPump(s)
 }

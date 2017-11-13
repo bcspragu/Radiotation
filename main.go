@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"html/template"
 	"log"
 	"math/rand"
@@ -13,23 +12,12 @@ import (
 	"time"
 
 	"github.com/bcspragu/Radiotation/db"
+	"github.com/bcspragu/Radiotation/hub"
 	"github.com/bcspragu/Radiotation/music"
 	"github.com/bcspragu/Radiotation/spotify"
+	"github.com/bcspragu/Radiotation/srv"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/namsral/flag"
-)
-
-type (
-	tmplData struct {
-		ClientID string
-		Host     string
-		Room     *db.Room
-		User     *db.User
-		Rooms    struct {
-			ID          string
-			DisplayName string
-		}
-	}
 )
 
 var (
@@ -41,8 +29,6 @@ var (
 
 	spotifyServer  music.SongServer
 	googleVerifier *oidc.IDTokenVerifier
-
-	errNoTracks = errors.New("radiotation: no tracks in room")
 )
 
 func main() {
@@ -72,8 +58,7 @@ func main() {
 		ClientID: *clientID,
 	})
 
-	//db, err := initBoltDB()
-	db, err := initInMemDB()
+	idb, err := db.InitInMemDB()
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
@@ -84,29 +69,16 @@ func main() {
 	}
 
 	if err == nil {
-		if err := db.Load(f); err != nil {
+		if err := db.Load(f, idb); err != nil {
 			f.Close()
 			log.Fatalf("Failed to load datastore: %v", err)
 		}
 	}
 	f.Close()
 
-	s := srv.New(db, db)
-	s := &srv{
-		Template: tmpls,
-		db:       db,
-		h: hub{
-			broadcast:   make(chan []byte),
-			register:    make(chan *connection),
-			unregister:  make(chan *connection),
-			connections: make(map[*connection]bool),
-			userconns:   make(map[*db.User]*connection),
-		},
-	}
-	go s.h.run()
-
-	if err := servePaths(); err != nil {
-		log.Fatalf("Can't serve static assets: %v", err)
+	s, err := srv.New(idb, hub.New())
+	if err != nil {
+		log.Fatalf("Failed to start DB: %v", err)
 	}
 
 	c := make(chan os.Signal, 1)
@@ -118,7 +90,7 @@ func main() {
 			// A legitimate error, not just 'the file was found'
 			log.Fatalf("Failed to open datastore file for writing: %v", err)
 		}
-		if err := s.db.Save(f); err != nil {
+		if err := db.Save(f, idb); err != nil {
 			log.Fatalf("Failed to save datastore: %v", err)
 		}
 		if err := f.Close(); err != nil {

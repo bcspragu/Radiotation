@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 	"sort"
 	"sync"
@@ -9,7 +10,7 @@ import (
 	"github.com/bcspragu/Radiotation/music"
 )
 
-func initInMemDB() (DB, error) {
+func InitInMemDB() (DB, error) {
 	return &memDBImpl{
 		rooms:   make(map[RoomID]*Room),
 		users:   make(map[UserID]*User),
@@ -37,7 +38,12 @@ type memData struct {
 	History map[RoomID][]*TrackEntry
 }
 
-func (m *memDBImpl) Load(r io.Reader) error {
+func Load(r io.Reader, idb DB) error {
+	m, ok := idb.(*memDBImpl)
+	if !ok {
+		return fmt.Errorf("Cannot load into %T", idb)
+	}
+
 	md := &memData{}
 	if err := gob.NewDecoder(r).Decode(md); err != nil {
 		return err
@@ -50,7 +56,12 @@ func (m *memDBImpl) Load(r io.Reader) error {
 	return nil
 }
 
-func (m *memDBImpl) Save(w io.Writer) error {
+func Save(w io.Writer, idb DB) error {
+	m, ok := idb.(*memDBImpl)
+	if !ok {
+		return fmt.Errorf("Cannot load into %T", idb)
+	}
+
 	m.Lock()
 	defer m.Unlock()
 	md := &memData{

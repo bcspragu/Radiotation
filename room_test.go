@@ -108,6 +108,6 @@ func TestPopTrack_ShuffleRotator(t *testing.T) {
 	}
 
 	if diff := abs(u1-u2) / ((u1 + u2) / 2); diff >= 0.05 {
-		t.Errorf("diff between %d and %d = %f, want less than %f", u1, u2, diff, 0.2)
+		t.Errorf("diff between %f and %f = %f, want less than %f", u1, u2, diff, 0.2)
 	}
 }
