@@ -76,9 +76,7 @@ func New(sdb db.DB, h *hub.Hub) (http.Handler, error) {
 	s.r.HandleFunc("/rooms/{id}/pop", s.serveSong).Methods("GET")
 	s.r.HandleFunc("/ws", s.withLogin(s.serveData))
 
-	for _, dir := range []string{"js", "img", "css"} {
-		s.r.Handle("/"+dir+"/", http.StripPrefix("/"+dir+"/", http.FileServer(http.Dir(dir))))
-	}
+	s.r.Handle("/dist/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets/dist/"))))
 
 	return s, nil
 }
