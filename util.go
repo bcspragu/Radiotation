@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 
-	"github.com/bcspragu/Radiotation/app"
+	"github.com/bcspragu/Radiotation/db"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/securecookie"
 )
 
 func (s *srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +21,7 @@ func (s *srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) fu
 	}
 }
 
-func (s *srv) createUser(w http.ResponseWriter, u *app.User) {
+func (s *srv) createUser(w http.ResponseWriter, u *db.User) {
 	if encoded, err := s.sc.Encode("user", u); err == nil {
 		cookie := &http.Cookie{
 			Name:  "user",
@@ -48,38 +45,6 @@ func serveError(w http.ResponseWriter, err error) {
 	log.Printf("Error: %v\n", err)
 }
 
-func loadKeys() (*securecookie.SecureCookie, error) {
-	hashKey, err := loadOrGenKey("hashKey")
-	if err != nil {
-		return nil, err
-	}
-
-	blockKey, err := loadOrGenKey("blockKey")
-	if err != nil {
-		return nil, err
-	}
-
-	return securecookie.New(hashKey, blockKey), nil
-}
-
-func loadOrGenKey(name string) ([]byte, error) {
-	f, err := ioutil.ReadFile(name)
-	if err == nil {
-		return f, nil
-	}
-
-	dat := securecookie.GenerateRandomKey(32)
-	if dat == nil {
-		return nil, errors.New("Failed to generate key")
-	}
-
-	err = ioutil.WriteFile(name, dat, 0777)
-	if err != nil {
-		return nil, errors.New("Error writing file")
-	}
-	return dat, nil
-}
-
 func servePaths() error {
 	for _, dir := range []string{"js", "img", "css"} {
 		http.Handle("/"+dir+"/", http.StripPrefix("/"+dir+"/", http.FileServer(http.Dir(dir))))
@@ -88,10 +53,10 @@ func servePaths() error {
 }
 
 func roomID(r *http.Request) string {
-	return app.Normalize(mux.Vars(r)["id"])
+	return db.Normalize(mux.Vars(r)["id"])
 }
 
-func (s *srv) getRoom(r *http.Request) (*app.Room, error) {
+func (s *srv) getRoom(r *http.Request) (*db.Room, error) {
 	id := roomID(r)
 	rm, err := s.db.Room(id)
 	if err != nil {
@@ -101,14 +66,14 @@ func (s *srv) getRoom(r *http.Request) (*app.Room, error) {
 	return rm, nil
 }
 
-func (s *srv) user(r *http.Request) (*app.User, error) {
+func (s *srv) user(r *http.Request) (*db.User, error) {
 	cookie, err := r.Cookie("user")
 
 	if err != nil {
 		return nil, fmt.Errorf("Error loading cookie, or no cookie found: %v", err)
 	}
 
-	var u *app.User
+	var u *db.User
 	if err := s.sc.Decode("user", cookie.Value, &u); err != nil {
 		return nil, fmt.Errorf("Error decoding cookie: %v", err)
 	}

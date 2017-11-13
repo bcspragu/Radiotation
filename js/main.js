@@ -70,6 +70,7 @@ function loadWebSockets() {
 function onSignIn(googleUser) {
   var idToken = googleUser.getAuthResponse().id_token;
   verifyToken(idToken);
+  $('.signin-holder').load('/', {});
 }
 
 function onFailure(err) {

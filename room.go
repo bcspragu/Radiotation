@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bcspragu/Radiotation/app"
+	"github.com/bcspragu/Radiotation/db"
 	"github.com/bcspragu/Radiotation/music"
 )
 
 type userTrack struct {
-	id    app.ID
+	id    db.UserID
 	track music.Track
 }
 
@@ -25,7 +25,7 @@ func (s *srv) nowPlaying(roomID string) music.Track {
 	return music.Track{}
 }
 
-func (s *srv) popTrack(roomID string) (*app.User, music.Track, error) {
+func (s *srv) popTrack(roomID string) (*db.User, music.Track, error) {
 	r, err := s.db.Room(roomID)
 	if err != nil {
 		return nil, music.Track{}, err
@@ -74,7 +74,7 @@ func (s *srv) popTrack(roomID string) (*app.User, music.Track, error) {
 	return nil, music.Track{}, errNoTracks
 }
 
-func (s *srv) AddUser(roomID string, id app.ID) {
+func (s *srv) AddUser(roomID string, id db.UserID) {
 	r, err := s.db.Room(roomID)
 	if err != nil {
 		log.Printf("Error loading room %s: %v", roomID, err)

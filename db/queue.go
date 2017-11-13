@@ -1,8 +1,14 @@
-package app
+package db
 
 import "github.com/bcspragu/Radiotation/music"
 
+type QueueID struct {
+	UserID UserID
+	RoomID RoomID
+}
+
 type Queue struct {
+	ID     QueueID
 	Offset int
 	Tracks []music.Track
 }

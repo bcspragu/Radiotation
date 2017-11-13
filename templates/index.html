@@ -1,25 +1,16 @@
-{{ template "header" . }}
-<div class="container content main-content">
-  <div class="text-center">
-    <h1>Welcome to Radiotation!</h1>
-  </div>
-  <h2>Here's how it works</h2>
-  <ol class="how-it-works">
-    <li>Log in with you Google Account.</li>
-    <li>Join an existing room with your friends or create a new one.</li>
-    <li>Search for your favorite songs, and add them to your playlist.</li>
-    <li>Open up the Radiotation app for Android and start playing it back.</li>
-  </ol>
-  <p>
-    Radiotation will handle the rest, giving everyone equal playtime in the
-    car (as long as everyone has added music!)
-  </p>
-  {{ if .User }}
-    {{ template "room-form" }}
-  {{ else }}
-    <div class="text-center">
-      <div id="g-signin"></div>
-    </div>
-  {{ end }}
-</div>
-{{ template "footer" . }}
+<!DOCTYPE html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Radiotation</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="google-signin-client_id" content="{{ .ClientID }}">
+    <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
+    <link rel="stylesheet" href="/css/main.css">
+  </head>
+  <body>
+    <script src="https://apis.google.com/js/platform.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="/js/main.js"></script>
+  </body>
+</html>

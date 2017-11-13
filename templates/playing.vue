@@ -1,0 +1,5 @@
+<div class="now-album-art" style="background-image:url({{ $track.Album.Image }})" alt="{{ $track.Album.Name }}"> </div>
+<div class="track-info">
+  <div class="track-title">{{ .Name }}</div>
+  <div class="track-artist">{{ .ArtistList }}</div>
+</div>

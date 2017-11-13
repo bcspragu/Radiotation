@@ -9,7 +9,7 @@ import (
 	oidc "github.com/coreos/go-oidc"
 )
 
-func (s *srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
+func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		return
 	}

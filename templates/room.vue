@@ -1,4 +1,3 @@
-{{ template "header" . }}
 <div class="flexbox-wrapper">
   <div class="flexbox-row queue-holder">
     <div class="queue">
@@ -24,4 +23,3 @@
     {{ template "playing" .Tracks }}
   </div>
 </div>
-{{ template "footer" . }}

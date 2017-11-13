@@ -1,4 +1,4 @@
-package app
+package db
 
 import (
 	"bytes"
@@ -15,11 +15,16 @@ var (
 )
 
 type (
+	// MusicService is an enum for supported music streaming platforms.
 	MusicService int
-	RotatorType  int
+	// RotatorType is an enum for the type of rotation for the room.
+	RotatorType int
+
+	// RoomID is an opaque string identifying a room.
+	RoomID string
 
 	Room struct {
-		ID           string
+		ID           RoomID
 		DisplayName  string
 		Rotator      Rotator
 		MusicService MusicService
@@ -172,7 +177,8 @@ func (r *roundRobinRotator) Start(n int) {
 	r.N = n
 }
 
-func New(name string, ms MusicService) *Room {
+// NewRoom initializes a new room with no users.
+func NewRoom(name string, ms MusicService) *Room {
 	return &Room{
 		DisplayName:  name,
 		ID:           Normalize(name),
@@ -180,7 +186,7 @@ func New(name string, ms MusicService) *Room {
 	}
 }
 
-func Normalize(name string) string {
+func Normalize(name string) RoomID {
 	if len(name) == 0 {
 		name = "blank"
 	}
@@ -192,5 +198,5 @@ func Normalize(name string) string {
 	name = strings.TrimSpace(name)
 	name = strings.Replace(name, " ", "-", -1)
 	name = strings.Replace(name, "_", "-", -1)
-	return nameRE.ReplaceAllString(name, "")
+	return RoomID(nameRE.ReplaceAllString(name, ""))
 }

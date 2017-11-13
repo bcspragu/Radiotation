@@ -1,4 +1,4 @@
-package app
+package db
 
 import (
 	"math/rand"
@@ -9,7 +9,7 @@ func TestNormalize(t *testing.T) {
 	testcases := []struct {
 		desc string
 		in   string
-		want string
+		want RoomID
 	}{
 		{"empty name should return blank", "", "blank"},
 		{"long name should be truncated", "thisnameiswaytoolong", "thisnameiswayto"},
@@ -30,33 +30,33 @@ func TestNormalize(t *testing.T) {
 func TestRoundRobinRotator_Empty(t *testing.T) {
 	r := &roundRobinRotator{}
 
-	r.start(0)
+	r.Start(0)
 	tryNext(t, r, 0, true)
 
-	r.start(0)
+	r.Start(0)
 	tryNext(t, r, 0, true)
 }
 
 func TestRoundRobinRotator(t *testing.T) {
 	r := &roundRobinRotator{}
 
-	r.start(1)
+	r.Start(1)
 	tryNext(t, r, 0, true)
 
-	r.start(2)
+	r.Start(2)
 	tryNext(t, r, 0, false)
 	tryNext(t, r, 1, true)
 
-	r.start(3)
+	r.Start(3)
 	tryNext(t, r, 0, false)
 	tryNext(t, r, 1, false)
 	tryNext(t, r, 2, true)
 
-	r.start(4)
+	r.Start(4)
 	tryNext(t, r, 0, false)
 	tryNext(t, r, 1, false)
 	// Restart in middle
-	r.start(4)
+	r.Start(4)
 	tryNext(t, r, 0, false)
 	tryNext(t, r, 1, false)
 	tryNext(t, r, 2, false)
@@ -66,36 +66,36 @@ func TestRoundRobinRotator(t *testing.T) {
 func TestShuffleRotator_Empty(t *testing.T) {
 	r := &shuffleRotator{R: rand.New(rand.NewSource(0))}
 
-	r.start(0)
+	r.Start(0)
 	tryNext(t, r, 0, true)
 
-	r.start(0)
+	r.Start(0)
 	tryNext(t, r, 0, true)
 }
 
 func TestShuffleRotator(t *testing.T) {
 	r := &shuffleRotator{R: rand.New(rand.NewSource(0))}
-	r.start(1)
+	r.Start(1)
 	tryNext(t, r, 0, true)
 
 	r = &shuffleRotator{R: rand.New(rand.NewSource(0))}
-	r.start(2)
+	r.Start(2)
 	tryNext(t, r, 1, false)
 	tryNext(t, r, 0, true)
 
 	r = &shuffleRotator{R: rand.New(rand.NewSource(0))}
-	r.start(3)
+	r.Start(3)
 	tryNext(t, r, 1, false)
 	tryNext(t, r, 2, false)
 	tryNext(t, r, 0, true)
 
 	r = &shuffleRotator{R: rand.New(rand.NewSource(3))}
-	r.start(4)
+	r.Start(4)
 	tryNext(t, r, 2, false)
 	tryNext(t, r, 1, false)
 	// Restart in middle
 	r = &shuffleRotator{R: rand.New(rand.NewSource(3))}
-	r.start(4)
+	r.Start(4)
 	tryNext(t, r, 2, false)
 	tryNext(t, r, 1, false)
 	tryNext(t, r, 3, false)
@@ -105,10 +105,10 @@ func TestShuffleRotator(t *testing.T) {
 func TestRandomRotator_Empty(t *testing.T) {
 	r := &randomRotator{R: rand.New(rand.NewSource(0))}
 
-	r.start(0)
+	r.Start(0)
 	tryNext(t, r, 0, true)
 
-	r.start(0)
+	r.Start(0)
 	tryNext(t, r, 0, true)
 }
 
@@ -116,35 +116,35 @@ func TestRandomRotator(t *testing.T) {
 	r := &randomRotator{R: rand.New(rand.NewSource(0))}
 
 	for i := 0; i < 10; i++ {
-		r.start(1)
+		r.Start(1)
 		tryNext(t, r, 0, true)
 	}
 
 	r = &randomRotator{R: rand.New(rand.NewSource(0))}
-	r.start(2)
+	r.Start(2)
 	tryNext(t, r, 0, true)
 	tryNext(t, r, 0, true)
-	r.start(2)
+	r.Start(2)
 	tryNext(t, r, 1, true)
 	tryNext(t, r, 0, true)
 
 	r = &randomRotator{R: rand.New(rand.NewSource(0))}
-	r.start(3)
+	r.Start(3)
 	tryNext(t, r, 0, true)
 	tryNext(t, r, 0, true)
 	tryNext(t, r, 1, true)
-	r.start(3)
+	r.Start(3)
 	tryNext(t, r, 1, true)
 	tryNext(t, r, 2, true)
 	tryNext(t, r, 1, true)
 
 	r = &randomRotator{R: rand.New(rand.NewSource(3))}
-	r.start(4)
+	r.Start(4)
 	tryNext(t, r, 0, true)
 	tryNext(t, r, 1, true)
 	// Restart in middle
 	r = &randomRotator{R: rand.New(rand.NewSource(3))}
-	r.start(4)
+	r.Start(4)
 	tryNext(t, r, 0, true)
 	tryNext(t, r, 1, true)
 	tryNext(t, r, 0, true)
@@ -152,8 +152,8 @@ func TestRandomRotator(t *testing.T) {
 }
 
 func tryNext(t *testing.T, r Rotator, idx int, last bool) {
-	if i, l := r.nextIndex(); i != idx || l != last {
-		t.Errorf("r.nextIndex() = (%d, %t), want (%d, %t)", i, l, idx, false)
+	if i, l := r.NextIndex(); i != idx || l != last {
+		t.Errorf("r.NextIndex() = (%d, %t), want (%d, %t)", i, l, idx, false)
 	}
 }
 
