@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,11 +10,9 @@ import (
 	"time"
 
 	"github.com/bcspragu/Radiotation/db"
-	"github.com/bcspragu/Radiotation/hub"
 	"github.com/bcspragu/Radiotation/music"
 	"github.com/bcspragu/Radiotation/spotify"
 	"github.com/bcspragu/Radiotation/srv"
-	oidc "github.com/coreos/go-oidc"
 	"github.com/namsral/flag"
 )
 
@@ -26,9 +22,6 @@ var (
 	clientID      = flag.String("client_id", "", "The Google ClientID to use")
 	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
 	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
-
-	spotifyServer  music.SongServer
-	googleVerifier *oidc.IDTokenVerifier
 )
 
 func main() {
@@ -38,25 +31,6 @@ func main() {
 	if *clientID == "" || *spotifyClient == "" || *spotifySecret == "" {
 		log.Fatalf("Missing a required flag, all of  --client_id, --spotify_client_id, and --spotify_secret are required.")
 	}
-
-	spotifyServer = spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret)
-
-	tmpls, err := template.ParseGlob("templates/*.html")
-	if err != nil {
-		log.Fatalf("Can't load templates, dying: %v", err)
-	}
-
-	if err != nil {
-		log.Fatalf("Can't load or generate keys, dying: %v", err)
-	}
-
-	googleProvider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
-	if err != nil {
-		log.Fatalf("Failed to get provider for Google: %v", err)
-	}
-	googleVerifier = googleProvider.Verifier(&oidc.Config{
-		ClientID: *clientID,
-	})
 
 	idb, err := db.InitInMemDB()
 	if err != nil {
@@ -76,7 +50,12 @@ func main() {
 	}
 	f.Close()
 
-	s, err := srv.New(idb, hub.New())
+	s, err := srv.New(idb, &srv.Config{
+		ClientID: *clientID,
+		SongServers: map[db.MusicService]music.SongServer{
+			db.Spotify: spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
+		},
+	})
 	if err != nil {
 		log.Fatalf("Failed to start DB: %v", err)
 	}
@@ -99,34 +78,14 @@ func main() {
 		os.Exit(1)
 	}()
 
-	err = http.ListenAndServe(*addr, nil)
+	err = http.ListenAndServe(*addr, s)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-}
-
-type QueueResponse struct {
-	Error   bool
-	Message string
 }
 
 type TrackListResponse struct {
 	Error   bool
 	Message string
 	Tracks  []music.Track
-}
-
-type TrackResponse struct {
-	Error   bool
-	Message string
-	Track   music.Track
-}
-
-func songServer(rm *db.Room) music.SongServer {
-	switch rm.MusicService {
-	case db.Spotify:
-		return spotifyServer
-	default:
-		return nil
-	}
 }

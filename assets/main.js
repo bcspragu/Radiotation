@@ -3,7 +3,7 @@ import Home from './Home.vue'
 
 new Vue({
   el: '#app',
-  render: h => h(App)
+  render: h => h(Home)
 })
 
 var conn;

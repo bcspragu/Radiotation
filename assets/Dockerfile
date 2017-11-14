@@ -17,7 +17,8 @@ RUN npm init --yes && \
       vue-cli \
       vue-loader \
       vue-template-compiler \
-      extract-text-webpack-plugin
+      extract-text-webpack-plugin \
+      jquery
 
 VOLUME /project/assets
 

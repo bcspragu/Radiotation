@@ -36,7 +36,13 @@ module.exports = {
   devServer: {
     host: '0.0.0.0',
     port: 8081,
-  }
+  },
+  plugins: [
+    new webpack.ProvidePlugin({
+      $: "jquery",
+      jQuery: "jquery"
+    })
+  ]
 };
 
 if (process.env.NODE_ENV === 'production') {

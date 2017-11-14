@@ -14,7 +14,7 @@ func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := r.PostFormValue("token")
-	ti, err := verifyIdToken(token)
+	ti, err := s.verifyIdToken(token)
 	if err != nil {
 		log.Printf("verifyIdToken(%s): %v", token, err)
 		return
@@ -35,9 +35,9 @@ func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("success"))
 }
 
-func verifyIdToken(rawIDToken string) (*oidc.IDToken, error) {
+func (s *Srv) verifyIdToken(rawIDToken string) (*oidc.IDToken, error) {
 	// Verify the token
-	idToken, err := googleVerifier.Verify(context.Background(), rawIDToken)
+	idToken, err := s.googleVerifier.Verify(context.Background(), rawIDToken)
 	if err != nil {
 		return nil, err
 	}

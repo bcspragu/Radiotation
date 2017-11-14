@@ -52,6 +52,10 @@ func (h *Hub) run() {
 	}
 }
 
+func (h *Hub) Broadcast(msg []byte) {
+	h.broadcast <- msg
+}
+
 // Register associates a connection with the hub.
 func (h *Hub) Register(ws *websocket.Conn) {
 	conn := &connection{h: h, send: make(chan []byte, 256), ws: ws}
