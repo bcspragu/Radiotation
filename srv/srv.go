@@ -30,11 +30,6 @@ var (
 	errNoTracks = errors.New("radiotation: no tracks in room")
 )
 
-type queueResponse struct {
-	Error   bool
-	Message string
-}
-
 type Srv struct {
 	sc   *securecookie.SecureCookie
 	h    *hub.Hub
@@ -89,6 +84,7 @@ func New(sdb db.DB, cfg *Config) (http.Handler, error) {
 func (s *Srv) initHandlers() {
 	s.r = mux.NewRouter()
 	s.r.HandleFunc("/", s.serveHome).Methods("GET")
+	s.r.HandleFunc("/user", s.serveUser).Methods("GET")
 	s.r.HandleFunc("/verifyToken", s.serveVerifyToken)
 	s.r.HandleFunc("/rooms", s.withLogin(s.serveCreateRoom)).Methods("POST")
 	s.r.HandleFunc("/rooms/{id}", s.withLogin(s.serveRoom)).Methods("GET")
@@ -112,6 +108,15 @@ func (s *Srv) serveHome(w http.ResponseWriter, r *http.Request) {
 	}{s.cfg.ClientID}); err != nil {
 		serveError(w, err)
 	}
+}
+
+func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {
+	u, err := s.user(r)
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+	jsonResp(w, u)
 }
 
 func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request) {
@@ -150,7 +155,7 @@ func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 		s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track)
 	}
 
-	json.NewEncoder(w).Encode(queueResponse{})
+	json.NewEncoder(w).Encode(struct{}{})
 }
 
 func (s *Srv) serveQueue(w http.ResponseWriter, r *http.Request) {
@@ -240,34 +245,36 @@ func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	_, err := s.roomDB.Room(id)
 	if err == db.ErrRoomNotFound {
-		s.createRoom(dispName, r.PostFormValue("shuffle_order"))
-	} else if err != nil {
-		log.Printf("Failed to check for room: %v", err)
-		return
+		room := &db.Room{
+			ID:          id,
+			DisplayName: dispName,
+			Rotator:     rotatorByName(r.PostFormValue("shuffleOrder")),
+		}
+		err := s.roomDB.AddRoom(room)
+		if err != nil {
+			jsonErr(w, err)
+			return
+		}
+		jsonResp(w, struct{ ID string }{string(id)})
 	}
 
-	// If we're here, the room exists now
-	http.Redirect(w, r, "/rooms/"+string(id), 302)
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
 }
 
-func (s *Srv) createRoom(name, rotator string) {
-	log.Printf("Creating room %s, with shuffle order %s", name, rotator)
-
-	// Add the new, non-existent room
-	rm := db.NewRoom(name, db.Spotify)
-	switch rotator {
+func rotatorByName(name string) db.Rotator {
+	typ := db.RoundRobin
+	switch name {
 	case "robin":
-		rm.Rotator = db.NewRotator(db.RoundRobin)
+		typ = db.RoundRobin
 	case "shuffle":
-		rm.Rotator = db.NewRotator(db.Shuffle)
+		typ = db.Shuffle
 	case "random":
-		rm.Rotator = db.NewRotator(db.Random)
+		typ = db.Random
 	}
-
-	if err := s.roomDB.AddRoom(rm); err != nil {
-		log.Printf("Failed to add room %+v: %v", rm, err)
-		return
-	}
+	return db.NewRotator(typ)
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
@@ -505,10 +512,19 @@ func (s *Srv) user(r *http.Request) (*db.User, error) {
 }
 
 func jsonErr(w http.ResponseWriter, err error) {
-	json.NewEncoder(w).Encode(queueResponse{
+	json.NewEncoder(w).Encode(struct {
+		Error   bool
+		Message string
+	}{
 		Error:   true,
 		Message: err.Error(),
 	})
+}
+
+func jsonResp(w http.ResponseWriter, v interface{}) {
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		serveError(w, err)
+	}
 }
 
 func loadKeys() (*securecookie.SecureCookie, error) {

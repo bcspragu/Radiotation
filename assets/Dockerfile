@@ -8,17 +8,20 @@ RUN mkdir -p /project
 WORKDIR /project
 RUN npm init --yes && \
     npm install --save \
+      vue \
+      spectre.css \
+      jquery
+
+RUN npm install --save-dev \
       webpack \
       webpack-dev-server \
       uglifyjs-webpack-plugin \
       css-loader \
       file-loader \
-      vue \
       vue-cli \
       vue-loader \
       vue-template-compiler \
-      extract-text-webpack-plugin \
-      jquery
+      extract-text-webpack-plugin
 
 VOLUME /project/assets
 

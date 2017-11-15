@@ -14,37 +14,75 @@
       Radiotation will handle the rest, giving everyone equal playtime in the
       car (as long as everyone has added music!)
     </p>
-    <!--{{ if .User }}-->
-      <div class="columns">
-        <div class="column col-6">
-          <room-form></room-form>
-        </div>
-        <div class="column col-6">
-          <ul>
-            <!--{{ range .Rooms }}-->
-              <!--<li>{{ .DisplayName }}</li>-->
-            <!--{{ end }}-->
-          </ul>
-        </div>
+    <div v-if="user" class="columns">
+      <div class="column col-6">
+        <h2>New Room</h2>
+        <room-form></room-form>
       </div>
-    <!--{{ else }}-->
-      <div class="columns signin-holder">
+      <div class="column col-6">
+        <h2>Available Rooms</h2>
+        <ul>
+          <li v-for="room in rooms">{{ room }}</li>
+        </ul>
+      </div>
+    </div>
+    <div v-else class="columns signin-holder">
+      <div>
         <div id="g-signin"></div>
       </div>
-    <!--{{ end }}-->
+    </div>
   </div>
 </template>
 
 <script>
-import RoomForm from './RoomForm.vue'
-
-export default {
-  components: {
-    'room-form': RoomForm
-  },
+module.exports = {
   data: function() {
     return {
-      user: {name: 'brandon'}
+      user: null,
+      rooms: [],
+    };
+  },
+  created: function() {
+    this.fetchUser();
+  },
+  methods: {
+    fetchUser: function() {
+      var vue = this;
+      $.get('/user', function(dat) {
+        var data = JSON.parse(dat);
+        if (data.Error) {
+          gapi.signin2.render('g-signin', {
+            'scope': 'profile email',
+            'width': 240,
+            'height': 50,
+            'theme': 'dark',
+            'onsuccess': vue.onSignIn,
+            'onfailure': vue.onFailure,
+          });
+        } else {
+          vue.user = data;
+        }
+      });
+    },
+    onSignIn: function(googleUser) {
+      var idToken = googleUser.getAuthResponse().id_token;
+      var vue = this;
+      $.ajax({
+        url: '/verifyToken',
+        type: 'post',
+        data: {
+          token: idToken,
+        },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        success: function(data) {
+          vue.fetchUser();
+        }
+      })
+    },
+    onFailure: function(err) {
+      console.log("err" + err);
     }
   }
 }
