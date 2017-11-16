@@ -1,13 +1,25 @@
 import Vue from 'vue';
+import VueRouter from 'vue-router';
+
+import App from './App.vue';
 import Home from './Home.vue';
-import RoomForm from './RoomForm.vue';
+import Room from './Room.vue';
 import '../node_modules/spectre.css/dist/spectre.min.css'
 
-Vue.component('room-form', RoomForm);
+//Vue.use(VueRouter);
+
+var routes = [
+  { path: '/', component: Home },
+  { path: '/room/:id', component: Room }
+]
+
+const router = new VueRouter({ routes: routes })
 
 new Vue({
   el: '#app',
-  render: h => h(Home)
+  //router: router,
+  template: '<Home/>',
+  components: { Home: Home }
 });
 
 var conn;

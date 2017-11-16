@@ -35,59 +35,41 @@
 </template>
 
 <script>
-import RoomForm from './RoomForm.vue';
+import RoomForm from './RoomForm.vue'
 
 export default {
+  name: 'Home',
   data () {
     return {
       user: null,
-      rooms: [],
+      rooms: []
     }
   },
   components: {
-    'room-form': RoomForm,
+    'room-form': RoomForm
   },
   created () {
     this.fetchUser()
   },
   methods: {
     fetchUser () {
-      var vue = this;
-      $.get('/user', function(dat) {
-        var resp = JSON.parse(dat);
-        if (resp.Error) {
+      var vue = this
+      vue.$http.get('/user').then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
+          // eslint-disable-next-line
           gapi.signin2.render('g-signin', {
             'scope': 'profile email',
             'width': 240,
             'height': 50,
             'theme': 'dark',
             'onsuccess': vue.onSignIn,
-            'onfailure': vue.onFailure,
-          });
+            'onfailure': vue.onFailure
+          })
         } else {
-          vue.user = resp;
-        }
-      });
-    },
-    onSignIn (googleUser) {
-      var idToken = googleUser.getAuthResponse().id_token;
-      var vue = this;
-      $.ajax({
-        url: '/verifyToken',
-        type: 'post',
-        data: {
-          token: idToken,
-        },
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        success: function(dat) {
-          vue.fetchUser();
+          vue.user = data
         }
       })
-    },
-    onFailure (err) {
-      console.log("err" + err);
     }
   }
 }

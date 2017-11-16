@@ -1,0 +1,4 @@
+split -v
+screen -t server go run tasks/runner.go
+focus
+screen -t frontend frontend/compile.sh

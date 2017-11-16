@@ -31,30 +31,32 @@
 </template>
 
 <script>
-module.exports = {
-  data: function() {
+export default {
+  data () {
     return {
-      roomName: "",
-      musicSource: "spotify",
-      shuffleOrder: "robin",
-    };
+      roomName: '',
+      musicSource: 'spotify',
+      shuffleOrder: 'robin'
+    }
   },
   methods: {
-    createRoom: function() {
+    createRoom () {
       var data = {
         roomName: this.roomName,
         musicSource: this.musicSource,
         shuffleOrder: this.shuffleOrder
-      };
-      var vue = this;
-      $.post('/room', data, function(dat) {
-        var resp = JSON.parse(dat)
-        if (resp.Error) {
+      }
+      var vue = this
+      vue.$http.post('/room', data, {emulateJSON: true}).then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
           // TODO: Handle error
+          console.log(data.Error)
+          return
         }
-        vue.$router.push({name: 'room', params: {id: resp.ID}});
-      });
-    },
+        vue.$router.push({name: 'Room', params: {id: data.ID}})
+      })
+    }
   }
 }
 </script>

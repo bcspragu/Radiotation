@@ -1,2 +1,2 @@
 #!/bin/bash
-go run tasks/runner.go
+screen -c screenrc

@@ -65,7 +65,7 @@ func New(sdb db.DB, cfg *Config) (http.Handler, error) {
 	s := &Srv{
 		sc:   sc,
 		h:    hub.New(),
-		tmpl: template.Must(template.ParseGlob("assets/*.html")),
+		tmpl: template.Must(template.ParseGlob("frontend/*.html")),
 		cfg:  cfg,
 		googleVerifier: googleProvider.Verifier(&oidc.Config{
 			ClientID: cfg.ClientID,
@@ -86,14 +86,14 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/", s.serveHome).Methods("GET")
 	s.r.HandleFunc("/user", s.serveUser).Methods("GET")
 	s.r.HandleFunc("/verifyToken", s.serveVerifyToken)
-	s.r.HandleFunc("/rooms", s.withLogin(s.serveCreateRoom)).Methods("POST")
-	s.r.HandleFunc("/rooms/{id}", s.withLogin(s.serveRoom)).Methods("GET")
-	s.r.HandleFunc("/rooms/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
-	s.r.HandleFunc("/rooms/{id}/queue", s.withLogin(s.serveQueue)).Methods("GET")
-	s.r.HandleFunc("/rooms/{id}/now", s.withLogin(s.serveNowPlaying)).Methods("GET")
-	s.r.HandleFunc("/rooms/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
-	s.r.HandleFunc("/rooms/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
-	s.r.HandleFunc("/rooms/{id}/pop", s.serveSong).Methods("GET")
+	s.r.HandleFunc("/room", s.withLogin(s.serveCreateRoom)).Methods("POST")
+	s.r.HandleFunc("/room/{id}", s.withLogin(s.serveRoom)).Methods("GET")
+	s.r.HandleFunc("/room/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
+	s.r.HandleFunc("/room/{id}/queue", s.withLogin(s.serveQueue)).Methods("GET")
+	s.r.HandleFunc("/room/{id}/now", s.withLogin(s.serveNowPlaying)).Methods("GET")
+	s.r.HandleFunc("/room/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
+	s.r.HandleFunc("/room/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
+	s.r.HandleFunc("/room/{id}/pop", s.serveSong).Methods("GET")
 	s.r.HandleFunc("/ws", s.withLogin(s.serveData))
 	s.r.Handle("/dist/", http.FileServer(http.Dir("assets/dist/")))
 }
@@ -240,28 +240,33 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
-	dispName := r.PostFormValue("room")
+	dispName := r.FormValue("roomName")
+	if dispName == "" {
+		jsonErr(w, errors.New("No room name given"))
+		return
+	}
 	id := db.Normalize(dispName)
 
 	_, err := s.roomDB.Room(id)
+	if err != nil && err != db.ErrRoomNotFound {
+		jsonErr(w, err)
+		return
+	}
+
 	if err == db.ErrRoomNotFound {
 		room := &db.Room{
 			ID:          id,
 			DisplayName: dispName,
 			Rotator:     rotatorByName(r.PostFormValue("shuffleOrder")),
 		}
-		err := s.roomDB.AddRoom(room)
-		if err != nil {
+
+		if err := s.roomDB.AddRoom(room); err != nil {
 			jsonErr(w, err)
 			return
 		}
-		jsonResp(w, struct{ ID string }{string(id)})
 	}
 
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
+	jsonResp(w, struct{ ID string }{string(id)})
 }
 
 func rotatorByName(name string) db.Rotator {
@@ -443,12 +448,7 @@ func (s *Srv) AddUser(rid db.RoomID, id db.UserID) {
 
 func (s *Srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := s.user(r); err != nil {
-			log.Printf("Unable to load user from request: %v --- Redirecting to login", err)
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-
+		// TODO: Reintroduce login check
 		handler(w, r)
 	}
 }

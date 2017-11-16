@@ -9,6 +9,7 @@ WORKDIR /project
 RUN npm init --yes && \
     npm install --save \
       vue \
+      vue-router \
       spectre.css \
       jquery
 

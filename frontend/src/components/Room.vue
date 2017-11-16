@@ -1,6 +1,6 @@
 <template>
   <div class="flexbox-wrapper">
-    <h1>Room</h1>
+    <h1>Room {{id}}</h1>
     <div class="flexbox-row queue-holder">
       <div class="queue">
         <!--{{ template "queue" .}}-->
@@ -29,11 +29,12 @@
 </template>
 
 <script>
-module.exports = {
-  data: function() {
+export default {
+  name: 'Room',
+  data () {
     return {
-      id: this.$route.params.id,
-    };
+      id: this.$route.params.id
+    }
   }
 }
 </script>
