@@ -15,12 +15,12 @@
       car (as long as everyone has added music!)
     </p>
     <div v-if="user" class="columns">
-      <div class="column col-6">
-        <h2>New Room</h2>
+      <div class="column col-6 col-sm-12">
+        <h2 class="text-center">New Room</h2>
         <room-form></room-form>
       </div>
-      <div class="column col-6">
-        <h2>Available Rooms</h2>
+      <div class="column col-6 col-sm-12">
+        <h2 class="text-center">Available Rooms</h2>
         <ul>
           <li v-for="room in rooms">{{ room }}</li>
         </ul>

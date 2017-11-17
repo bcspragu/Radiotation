@@ -115,7 +115,8 @@ func (m *memDBImpl) AddUserToRoom(rid RoomID, uid UserID) error {
 	defer m.Unlock()
 	qs := m.queues[rid]
 	m.queues[rid] = append(qs, &Queue{
-		ID: QueueID{UserID: uid, RoomID: rid},
+		ID:     QueueID{UserID: uid, RoomID: rid},
+		Tracks: []music.Track{},
 	})
 	return nil
 }

@@ -1,31 +1,38 @@
 <template>
-  <div class="container">
-    <div class="row">
-      <div class="eight columns offset-by-two">
-        <label for="room">Room Name</label>
-        <input type="text" v-model="roomName" name="room" class="room-name u-full-width" placeholder="Room Name" value="">
+  <div class="form-horizontal">
+    <div class="form-group">
+      <div class="col-3">
+        <label for="room" class="form-label">Room Name</label>
+      </div>
+      <div class="col-9">
+        <input type="text" v-model="roomName" name="room" class="form-input" placeholder="Room Name" value="">
       </div>
     </div>
-    <div class="row">
-      <div class="four columns offset-by-two">
-        <label for="musicSource">Music Source</label>
-        <select v-model="musicSource" name="musicSource" class="u-full-width">
+    <div class="form-group">
+      <div class="col-3">
+        <label for="musicSource" class="form-label">Music Source</label>
+      </div>
+      <div class="col-9">
+        <select v-model="musicSource" name="musicSource" class="form-select">
           <!--<option value="playmusic">Google Play Music</option>-->
           <option value="spotify">Spotify</option>
         </select>
       </div>
-      <div class="four columns">
-        <label for="shuffleOrder">Shuffle Order</label>
-        <select v-model="shuffleOrder" name="shuffleOrder" class="u-full-width">
+    </div>
+    <div class="form-group">
+      <div class="col-3">
+        <label for="shuffleOrder" class="form-label">Shuffle Order</label>
+      </div>
+      <div class="col-9">
+        <select v-model="shuffleOrder" name="shuffleOrder" class="form-select">
           <option value="robin">Round Robin</option>
           <option value="shuffle">Fair Random</option>
           <option value="random">True Random</option>
         </select>
       </div>
     </div>
-
-    <div class="row">
-      <button v-on:click="createRoom" class="button eight columns offset-by-two">Create Room</button>
+    <div class="form-group">
+      <button v-on:click="createRoom" class="btn btn-lg centered">Create Room</button>
     </div>
   </div>
 </template>

@@ -309,20 +309,26 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
+	if err != nil && err != db.ErrQueueNotFound {
+		jsonErr(w, err)
+		return
+	}
+
 	if err == db.ErrQueueNotFound {
 		log.Printf("Adding user %s to room %s", u.ID, rm.ID)
-		s.AddUser(rm.ID, u.ID)
-	} else if err != nil {
-		serveError(w, err)
-		return
+		if q, err = s.AddUser(rm.ID, u.ID); err != nil {
+			jsonErr(w, err)
+			return
+		}
 	}
 
 	t := s.nowPlaying(rm.ID)
 
 	if err := json.NewEncoder(w).Encode(struct {
+		Room  *db.Room
 		Queue *db.Queue
 		Track music.Track
-	}{q, t}); err != nil {
+	}{rm, q, t}); err != nil {
 		serveError(w, err)
 	}
 }
@@ -418,23 +424,20 @@ func (s *Srv) popTrack(rid db.RoomID) (*db.User, music.Track, error) {
 	return nil, music.Track{}, errNoTracks
 }
 
-func (s *Srv) AddUser(rid db.RoomID, id db.UserID) {
+func (s *Srv) AddUser(rid db.RoomID, id db.UserID) (*db.Queue, error) {
 	r, err := s.roomDB.Room(rid)
 	if err != nil {
-		log.Printf("Error loading room %s: %v", rid, err)
-		return
+		return nil, fmt.Errorf("error loading room %s: %v", rid, err)
 	}
 
 	users, err := s.userDB.Users(rid)
 	if err != nil {
-		log.Printf("Error loading users in room %s: %v", rid, err)
-		return
+		return nil, fmt.Errorf("error loading users in room %s: %v", rid, err)
 	}
 
 	for _, u := range users {
 		if u.ID == id {
-			log.Printf("User %s is already in room %s", id, rid)
-			return
+			return nil, fmt.Errorf("user %s is already in room %s", id, rid)
 		}
 	}
 
@@ -445,9 +448,9 @@ func (s *Srv) AddUser(rid db.RoomID, id db.UserID) {
 
 	err = s.roomDB.AddUserToRoom(rid, id)
 	if err != nil {
-		log.Printf("Error adding user %s to room %s: %v", id, rid, err)
-		return
+		return nil, fmt.Errorf("error adding user %s to room %s: %v", id, rid, err)
 	}
+	return s.queueDB.Queue(db.QueueID{RoomID: rid, UserID: id})
 }
 
 func (s *Srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
@@ -574,5 +577,10 @@ func (s *Srv) track(rm *db.Room, id string) (music.Track, error) {
 }
 
 func (s *Srv) songServer(rm *db.Room) music.SongServer {
-	return s.cfg.SongServers[rm.MusicService]
+	ss, ok := s.cfg.SongServers[rm.MusicService]
+	if !ok {
+		log.Printf("Couldn't find song server for room %+v", rm)
+		return s.cfg.SongServers[db.Spotify]
+	}
+	return ss
 }
