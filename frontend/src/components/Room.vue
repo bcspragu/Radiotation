@@ -3,22 +3,23 @@
     <h1>Room {{id}}</h1>
     <div class="flexbox-row queue-holder">
       <div class="queue">
-        <!--{{ template "queue" .}}-->
+        <ol>
+          <li v-for="track in tracks">{{track}}</li>
+        </ol>
       </div>
     </div>
     <div class="flexbox-row flexbox-row-fill">
       <div class="container">
-        <form class="search-form">
-        <!--<form class="search-form" action="/rooms/{{ .Room.ID }}/search">-->
+        <div class="search-form">
           <div class="row">
             <div class="seven columns offset-by-two">
-              <input type="text" name="search" class="u-full-width" placeholder="Search for Music">
+              <input type="text" v-model="query" name="search" class="u-full-width" placeholder="Search for Music">
             </div>
             <div>
-              <button type="submit" class="two columns button button-primary search">Search</button>
+              <button v-on:click="search" class="two columns button button-primary search">Search</button>
             </div>
           </div>
-        </form>
+        </div>
       </div>
       <div class="results"></div>
     </div>
@@ -33,7 +34,35 @@ export default {
   name: 'Room',
   data () {
     return {
-      id: this.$route.params.id
+      id: this.$route.params.id,
+      results: [],
+      tracks: [],
+      query: ''
+    }
+  },
+  methods: {
+    fetchRoom () {
+      this.$http.get('/rooms/' + this.id).then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
+          // Go to create page
+          console.log(data)
+          return
+        }
+        console.log(data)
+      })
+    },
+    search () {
+      var url = '/room/' + this.id + '/search'
+      var data = {query: this.query}
+      this.$http.get(url, {params: data, emulateJSON: true}).then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
+          console.log(data)
+          return
+        }
+        this.tracks = data
+      })
     }
   }
 }

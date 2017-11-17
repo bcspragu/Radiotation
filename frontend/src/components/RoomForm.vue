@@ -10,7 +10,7 @@
       <div class="four columns offset-by-two">
         <label for="musicSource">Music Source</label>
         <select v-model="musicSource" name="musicSource" class="u-full-width">
-          <!--<option value="gmusic">Google Play Music</option>-->
+          <!--<option value="playmusic">Google Play Music</option>-->
           <option value="spotify">Spotify</option>
         </select>
       </div>

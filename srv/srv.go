@@ -255,9 +255,10 @@ func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	if err == db.ErrRoomNotFound {
 		room := &db.Room{
-			ID:          id,
-			DisplayName: dispName,
-			Rotator:     rotatorByName(r.PostFormValue("shuffleOrder")),
+			ID:           id,
+			DisplayName:  dispName,
+			Rotator:      rotatorByName(r.FormValue("shuffleOrder")),
+			MusicService: musicServiceByName(r.FormValue("musicSource")),
 		}
 
 		if err := s.roomDB.AddRoom(room); err != nil {
@@ -280,6 +281,17 @@ func rotatorByName(name string) db.Rotator {
 		typ = db.Random
 	}
 	return db.NewRotator(typ)
+}
+
+func musicServiceByName(name string) db.MusicService {
+	typ := db.Spotify
+	switch name {
+	case "spotify":
+		typ = db.Spotify
+	case "playmusic":
+		typ = db.PlayMusic
+	}
+	return typ
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
@@ -322,21 +334,13 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := s.user(r)
+	tracks, err := s.search(rm, r.FormValue("query"))
 	if err != nil {
-		serveError(w, err)
+		jsonErr(w, err)
 		return
 	}
 
-	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
-	if err != nil {
-		serveError(w, err)
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(q); err != nil {
-		serveError(w, err)
-	}
+	jsonResp(w, tracks)
 }
 
 // serveData handles websocket requests from the peer trying to connect.

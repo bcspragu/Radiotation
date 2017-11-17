@@ -70,6 +70,13 @@ export default {
           vue.user = data
         }
       })
+    },
+    onSignIn (googleUser) {
+      if (this.user) {
+        return
+      }
+      var data = {token: googleUser.getAuthResponse().id_token}
+      this.$http.post('/verifyToken', data, {emulateJSON: true}).then(this.fetchUser)
     }
   }
 }
