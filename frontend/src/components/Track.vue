@@ -46,7 +46,6 @@ export default {
 
 <style scoped>
 .track {
-  height: 80px;
   padding-top: 6px;
   padding-bottom: 6px;
 }

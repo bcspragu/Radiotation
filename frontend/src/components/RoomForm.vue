@@ -41,11 +41,12 @@
 export default {
   data () {
     return {
-      roomName: '',
+      roomName: this.defaultName,
       musicSource: 'spotify',
       shuffleOrder: 'robin'
     }
   },
+  props: ['defaultName'],
   methods: {
     createRoom () {
       var data = {

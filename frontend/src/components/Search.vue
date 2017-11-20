@@ -1,8 +1,15 @@
 <template>
   <div class="results">
-    <h4 class="header"><button v-on:click="goBack" class="btn btn-link btn-back"><i class="icon icon-arrow-left"></i></button>Results for "{{query}}"</h4>
+    <h4><button v-on:click="goBack" class="btn btn-link btn-back"><i class="icon icon-arrow-left"></i></button>Results for "{{query}}"</h4>
     <div class="result-list">
-      <track-item v-for="track in results" :key="track.Artist+track.Title+track.Image" v-bind="track"></track-item>
+      <div v-for="track in results" class="container" :key="track.Artist+track.Title+track.Image">
+        <div class="columns col-gapless">
+          <div class="column col-10"><track-item v-bind="track"></track-item></div>
+          <div class="column col-2 add" v-on:click="addSong(track.ID)">
+            <button class="btn btn-link"><i class="icon icon-plus"></i></button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -26,6 +33,18 @@ export default {
     this.search()
   },
   methods: {
+    addSong (id) {
+      var url = '/room/' + this.roomID + '/add'
+      var data = {id: id}
+      this.$http.post(url, data, {emulateJSON: true}).then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
+          console.log(data)
+          return
+        }
+        console.log(data)
+      })
+    },
     goBack () {
       this.$router.back()
     },
@@ -52,5 +71,11 @@ export default {
 .btn-back {
   margin: 6px;
   margin-bottom: 8px;
+}
+
+.add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

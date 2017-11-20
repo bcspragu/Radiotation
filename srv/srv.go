@@ -135,7 +135,6 @@ func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
-	w.Header().Set("Content-Type", "application/json")
 	rm, err := s.getRoom(r)
 	if err != nil {
 		jsonErr(w, err)
@@ -148,7 +147,9 @@ func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 		return
 	}
 
-	track, err := s.track(rm, r.FormValue("id"))
+	trackID := r.FormValue("id")
+	log.Println(trackID)
+	track, err := s.track(rm, trackID)
 	if err != nil {
 		jsonErr(w, err)
 		return
@@ -157,12 +158,16 @@ func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 	// TODO: Check for errors.
 	if remove {
 		// TODO: Send the track ID from the client
-		s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, 0)
+		if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, 0); err != nil {
+			log.Println(err)
+		}
 	} else {
-		s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track)
+		if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
+			log.Println(err)
+		}
 	}
 
-	json.NewEncoder(w).Encode(struct{}{})
+	jsonResp(w, struct{ ID string }{trackID})
 }
 
 func (s *Srv) serveQueue(w http.ResponseWriter, r *http.Request) {

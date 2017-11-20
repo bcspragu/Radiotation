@@ -27,6 +27,12 @@ export default {
 }
 </script>
 
+<style>
+.container {
+  padding: 0;
+}
+</style>
+
 <style scoped>
 .navbar {
   background: #F8F9FA;

@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import Router from 'vue-router'
 
+import CreateRoom from '@/components/CreateRoom'
 import Home from '@/components/Home'
 import Room from '@/components/Room'
 import Search from '@/components/Search'
@@ -23,6 +24,11 @@ export default new Router({
       path: '/room/:id/search',
       name: 'Search',
       component: Search
+    },
+    {
+      path: '/room/:id/create',
+      name: 'CreateRoom',
+      component: CreateRoom
     }
   ]
 })

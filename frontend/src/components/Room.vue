@@ -47,11 +47,14 @@ export default {
     this.fetchRoom()
   },
   methods: {
+    remove () {
+
+    },
     fetchRoom () {
       this.$http.get('/room/' + this.id).then(response => {
         var data = JSON.parse(response.body)
         if (data.Error) {
-          // Go to create page
+          this.$router.push({name: 'CreateRoom', params: {id: this.id}})
           return
         }
         this.$emit('updateTitle', data.Room.DisplayName)
