@@ -17,11 +17,12 @@ import (
 )
 
 var (
-	_             = flag.String(flag.DefaultConfigFlagname, "config", "path to config file")
-	addr          = flag.String("addr", ":8000", "http service address")
+	_             = flag.String(flag.DefaultConfigFlagname, "config", "Path to config file")
+	addr          = flag.String("addr", ":8000", "HTTP service address")
 	clientID      = flag.String("client_id", "", "The Google ClientID to use")
 	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
 	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
+	dev           = flag.Bool("dev", true, "If true, use development configuration")
 )
 
 func main() {
@@ -36,21 +37,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
-	f, err := os.Open("inmemdb")
-	if err != nil && !os.IsNotExist(err) {
-		// A legitimate error, not just 'the file wasn't found'
-		log.Fatalf("Failed to open datastore file for reading: %v", err)
-	}
+	//f, err := os.Open("inmemdb")
+	//if err != nil && !os.IsNotExist(err) {
+	//// A legitimate error, not just 'the file wasn't found'
+	//log.Fatalf("Failed to open datastore file for reading: %v", err)
+	//}
 
-	if err == nil {
-		if err := db.Load(f, idb); err != nil {
-			f.Close()
-			log.Fatalf("Failed to load datastore: %v", err)
-		}
-	}
-	f.Close()
+	//if err == nil {
+	//if err := db.Load(f, idb); err != nil {
+	//f.Close()
+	//log.Fatalf("Failed to load datastore: %v", err)
+	//}
+	//}
+	//f.Close()
 
 	s, err := srv.New(idb, &srv.Config{
+		Dev:      *dev,
 		ClientID: *clientID,
 		SongServers: map[db.MusicService]music.SongServer{
 			db.Spotify: spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
@@ -64,17 +66,17 @@ func main() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-c
-		f, err := os.Create("inmemdb")
-		if err != nil && !os.IsExist(err) {
-			// A legitimate error, not just 'the file was found'
-			log.Fatalf("Failed to open datastore file for writing: %v", err)
-		}
-		if err := db.Save(f, idb); err != nil {
-			log.Fatalf("Failed to save datastore: %v", err)
-		}
-		if err := f.Close(); err != nil {
-			log.Fatalf("Failed to close datastore file: %v", err)
-		}
+		//f, err := os.Create("inmemdb")
+		//if err != nil && !os.IsExist(err) {
+		//// A legitimate error, not just 'the file was found'
+		//log.Fatalf("Failed to open datastore file for writing: %v", err)
+		//}
+		//if err := db.Save(f, idb); err != nil {
+		//log.Fatalf("Failed to save datastore: %v", err)
+		//}
+		//if err := f.Close(); err != nil {
+		//log.Fatalf("Failed to close datastore file: %v", err)
+		//}
 		os.Exit(1)
 	}()
 

@@ -48,6 +48,7 @@ type Srv struct {
 type Config struct {
 	ClientID    string
 	SongServers map[db.MusicService]music.SongServer
+	Dev         bool
 }
 
 // New returns an initialized server
@@ -95,7 +96,8 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/room/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
 	s.r.HandleFunc("/room/{id}/pop", s.serveSong).Methods("GET")
 	s.r.HandleFunc("/ws", s.withLogin(s.serveData))
-	s.r.Handle("/dist/", http.FileServer(http.Dir("assets/dist/")))
+	s.r.PathPrefix("/assets/").
+		Handler(http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/static/"))))
 }
 
 func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -103,9 +105,14 @@ func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) serveHome(w http.ResponseWriter, r *http.Request) {
+	js := template.HTML("/assets/app.js")
+	if s.cfg.Dev {
+		js = template.HTML("//localhost:8081/app.js")
+	}
 	if err := s.tmpl.ExecuteTemplate(w, "index.html", struct {
 		ClientID string
-	}{s.cfg.ClientID}); err != nil {
+		JS       template.HTML
+	}{s.cfg.ClientID, (js)}); err != nil {
 		serveError(w, err)
 	}
 }
@@ -297,8 +304,7 @@ func musicServiceByName(name string) db.MusicService {
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 	rm, err := s.getRoom(r)
 	if err != nil {
-		// TODO: Send "room doesn't exist" response
-		//s.serveNewRoom(w, r)
+		jsonErr(w, errors.New("room not found"))
 		return
 	}
 

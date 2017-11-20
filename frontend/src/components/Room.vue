@@ -1,35 +1,30 @@
 <template>
-  <div class="flexbox-wrapper">
-    <h1>{{room.DisplayName}}</h1>
-    <div class="flexbox-row queue-holder">
+  <div class="room-container">
+    <div class="input-group">
+      <input type="text" v-model="query" name="search" class="form-input input-lg" placeholder="Search for Music">
+      <button v-on:click="goToSearch" class="btn btn-lg input-group-btn"><i class="icon icon-search"></i></button>
+    </div>
+    <div class="queue">
+      <div class="divider">Your Queue</div>
       <div class="queue">
         <ol>
-          <track-item v-for="track in queue.Tracks" :key="track.Artist+track.Title+track.Image" v-bind="track">{{track}}</track-item>
+          <track-item 
+            v-for="track in queue.Tracks" 
+            v-bind="track"
+            v-on:click="remove"
+            :key="track.Artist+track.Title+track.Image">{{track}}</track-item>
         </ol>
       </div>
     </div>
-    <div class="container">
-      <div class="search-form">
-        <div class="row">
-          <div class="seven columns offset-by-two">
-            <input type="text" v-model="query" name="search" class="u-full-width" placeholder="Search for Music">
-          </div>
-          <div>
-            <button v-on:click="search" class="two columns button button-primary search">Search</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="results">
-    <track-item v-for="track in results" :key="track.Artist+track.Title+track.Image" v-bind="track"></track-item>
-    </div>
-    <div class="flexbox-row flexbox-row-fixed now-playing">
-      <!--{{ template "playing" .Tracks }}-->
+    <div>
+      <now-playing/>
     </div>
   </div>
 </template>
 
 <script>
+import NowPlaying from './NowPlaying.vue'
+import Search from './Search.vue'
 import Track from './Track.vue'
 
 export default {
@@ -39,12 +34,13 @@ export default {
       id: this.$route.params.id,
       room: {ID: '', DisplayName: ''},
       nowPlaying: null,
-      results: [],
       queue: {Tracks: []},
       query: ''
     }
   },
   components: {
+    'now-playing': NowPlaying,
+    'search': Search,
     'track-item': Track
   },
   created () {
@@ -56,26 +52,40 @@ export default {
         var data = JSON.parse(response.body)
         if (data.Error) {
           // Go to create page
-          console.log(data)
           return
         }
+        this.$emit('updateTitle', data.Room.DisplayName)
         this.room = data.Room
         this.queue = data.Queue
         this.nowPlaying = data.Track
       })
     },
-    search () {
-      var url = '/room/' + this.id + '/search'
-      var data = {query: this.query}
-      this.$http.get(url, {params: data, emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
-        if (data.Error) {
-          console.log(data)
-          return
-        }
-        this.results = data
-      })
+    goToSearch () {
+      this.$router.push({name: 'Search', params: {roomID: this.id}, query: {query: this.query}})
     }
   }
 }
 </script>
+
+<style scoped>
+.room-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.queue {
+  flex: 9;
+}
+
+.divider {
+  margin: 0;
+  font-size: 20px;
+  height: 24px;
+  line-height: 22px;
+  background: #F8F9FA;
+  border-top: 2px solid #F0F1F2;
+  border-bottom: 2px solid #F0F1F2;
+  font-color: white;
+  text-align: center;
+}
+</style>

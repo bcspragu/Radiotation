@@ -1,12 +1,13 @@
 <template>
-  <div class="track columns">
-    <div class="img">
-      <img class="img-responsive column" :src="image"/>
-    </div>
-    <div class="column">
-      <div class="title">{{Name}}</div>
-      <div class="arist">{{artist}}</div>
-      <div class="album">{{Album.Name}}</div>
+  <div class="track container">
+    <div class="columns col-gapless">
+      <div class="thumbnail column col-2"> <img :src="image">
+      </div>
+      <div class="metadata-holder column col-10">
+        <div class="title metadata">{{Name}}</div>
+        <div class="arist metadata">{{artist}}</div>
+        <div class="album metadata">{{Album.Name}}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -17,10 +18,20 @@ export default {
   props: ['Artists', 'Name', 'ID', 'Album'],
   computed: {
     image () {
-      if (this.Album.Images.length === 0) {
-        return 'http://via.placeholder.com/150x150'
+      var url = 'http://via.placeholder.com/150x150'
+      if (this.Album.Images.length > 0) {
+        url = this.Album.Images[0].URL
       }
-      return this.Album.Images[0].URL
+      return url
+    },
+    backgroundImage () {
+      var url = 'http://via.placeholder.com/150x150'
+      if (this.Album.Images.length > 0) {
+        url = this.Album.Images[0].URL
+      }
+      return {
+        'background-image': 'url("' + url + '")'
+      }
     },
     artist () {
       var names = []
@@ -35,29 +46,41 @@ export default {
 
 <style scoped>
 .track {
-  height: 100px;
+  height: 80px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
-.img {
-  width: 100px;
+.thumbnail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.track img {
-  display: block;
-  width: 100%;
-  height: auto;
+.thumbnail img {
+  max-width: 100%;
+}
+
+div.metadata-holder.column {
+  padding-left: 12px;
+}
+
+.metadata {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .title {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
 }
 
 .artist {
-  font-size: 16px;
+  font-size: 12px;
 }
 
 .album {
-  font-size: 14px;
+  font-size: 10px;
 }
 </style>
