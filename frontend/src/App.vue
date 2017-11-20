@@ -7,7 +7,7 @@
       </section>
       <section class="navbar-section"></section>
     </header>
-    <router-view v-on:updateTitle="updateTitle"/>
+    <router-view v-on:updateTitle="updateTitle" v-on:ajaxErr="handleError"/>
   </div>
 </template>
 
@@ -22,6 +22,13 @@ export default {
   methods: {
     updateTitle (title) {
       this.title = title
+    },
+    handleError (data) {
+      if (data && data.NotLoggedIn) {
+        this.$router.push({name: 'Home'})
+        return
+      }
+      console.log(data)
     }
   }
 }

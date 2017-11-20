@@ -7,13 +7,14 @@
     <div class="queue">
       <div class="divider">Your Queue</div>
       <div class="queue">
-        <ol>
-          <track-item 
-            v-for="track in queue.Tracks" 
-            v-bind="track"
-            v-on:click="remove"
-            :key="track.Artist+track.Title+track.Image">{{track}}</track-item>
-        </ol>
+        <div v-for="(track, index) in queue" class="container" :key="track.Artist+track.Title+track.Image">
+          <div class="columns col-gapless">
+            <div class="column col-10"><track-item v-bind="track"/></div>
+            <div class="column col-2 song-op" v-on:click="removeSong(track, index)">
+              <button class="btn btn-link"><i class="icon icon-cross"></i></button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div>
@@ -34,7 +35,7 @@ export default {
       id: this.$route.params.id,
       room: {ID: '', DisplayName: ''},
       nowPlaying: null,
-      queue: {Tracks: []},
+      queue: [],
       query: ''
     }
   },
@@ -47,12 +48,25 @@ export default {
     this.fetchRoom()
   },
   methods: {
-    remove () {
-
+    removeSong (track, index) {
+      var url = '/room/' + this.id + '/remove'
+      var data = {index: index, id: track.ID}
+      this.$http.post(url, data, {emulateJSON: true}).then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
+          this.$emit('ajaxErr', data)
+          return
+        }
+        this.queue.splice(index, 1)
+      })
     },
     fetchRoom () {
       this.$http.get('/room/' + this.id).then(response => {
         var data = JSON.parse(response.body)
+        if (data.NotLoggedIn) {
+          this.$emit('ajaxErr', data)
+          return
+        }
         if (data.Error) {
           this.$router.push({name: 'CreateRoom', params: {id: this.id}})
           return
@@ -90,5 +104,11 @@ export default {
   border-bottom: 2px solid #F0F1F2;
   font-color: white;
   text-align: center;
+}
+
+.song-op {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

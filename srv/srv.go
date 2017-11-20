@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/bcspragu/Radiotation/db"
 	"github.com/bcspragu/Radiotation/hub"
@@ -27,7 +28,8 @@ var (
 			return true
 		},
 	}
-	errNoTracks = errors.New("radiotation: no tracks in room")
+	errNoTracks    = errors.New("radiotation: no tracks in room")
+	errNotLoggedIn = errors.New("radiotation: user not found")
 )
 
 type Srv struct {
@@ -127,14 +129,6 @@ func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request) {
-	s.queueAction(w, r, false /* remove */)
-}
-
-func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
-	s.queueAction(w, r, true /* remove */)
-}
-
-func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 	rm, err := s.getRoom(r)
 	if err != nil {
 		jsonErr(w, err)
@@ -148,26 +142,64 @@ func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 	}
 
 	trackID := r.FormValue("id")
-	log.Println(trackID)
 	track, err := s.track(rm, trackID)
 	if err != nil {
 		jsonErr(w, err)
 		return
 	}
 
-	// TODO: Check for errors.
-	if remove {
-		// TODO: Send the track ID from the client
-		if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, 0); err != nil {
-			log.Println(err)
-		}
-	} else {
-		if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
-			log.Println(err)
-		}
+	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
+		log.Println(err)
 	}
 
 	jsonResp(w, struct{ ID string }{trackID})
+}
+
+func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
+	rm, err := s.getRoom(r)
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	u, err := s.user(r)
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	idx, err := strconv.Atoi(r.FormValue("index"))
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	queue, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	// If there are less tracks than the index, it's invalid.
+	if len(queue.Tracks) <= idx {
+		jsonErr(w, fmt.Errorf("asked to remove track index %d, only have %d tracks", idx, len(queue.Tracks)))
+		return
+	}
+
+	// If we're already passed the index, it's invalid.
+	if idx < queue.Offset {
+		jsonErr(w, fmt.Errorf("asked to remove track index %d, we're passed that on index %d", idx, queue.Offset))
+		return
+	}
+
+	if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, idx); err != nil {
+		log.Println(err)
+	}
+
+	jsonResp(w, struct{}{})
+}
+
+func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 }
 
 func (s *Srv) serveQueue(w http.ResponseWriter, r *http.Request) {
@@ -315,7 +347,7 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 
 	u, err := s.user(r)
 	if err != nil {
-		serveError(w, err)
+		jsonErr(w, err)
 		return
 	}
 
@@ -337,9 +369,9 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(struct {
 		Room  *db.Room
-		Queue *db.Queue
+		Queue []music.Track
 		Track music.Track
-	}{rm, q, t}); err != nil {
+	}{rm, q.Tracks, t}); err != nil {
 		serveError(w, err)
 	}
 }
@@ -347,7 +379,13 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 	rm, err := s.getRoom(r)
 	if err != nil {
-		serveError(w, err)
+		jsonErr(w, err)
+		return
+	}
+
+	u, err := s.user(r)
+	if err != nil {
+		jsonErr(w, err)
 		return
 	}
 
@@ -357,7 +395,34 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResp(w, tracks)
+	queue, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	inQueue := make(map[string]int)
+	for i, t := range queue.Tracks[queue.Offset:] {
+		inQueue[t.ID] = i + queue.Offset
+	}
+
+	type trackInQueue struct {
+		music.Track
+		InQueue bool
+		Index   int
+	}
+
+	var tracksInQueue []*trackInQueue
+	for _, t := range tracks {
+		idx, iq := inQueue[t.ID]
+		tracksInQueue = append(tracksInQueue, &trackInQueue{
+			Track:   t,
+			InQueue: iq,
+			Index:   idx,
+		})
+	}
+
+	jsonResp(w, tracksInQueue)
 }
 
 // serveData handles websocket requests from the peer trying to connect.
@@ -513,17 +578,21 @@ func (s *Srv) user(r *http.Request) (*db.User, error) {
 	cookie, err := r.Cookie("user")
 
 	if err != nil {
-		return nil, fmt.Errorf("Error loading cookie, or no cookie found: %v", err)
+		return nil, errNotLoggedIn
 	}
 
 	var u *db.User
 	if err := s.sc.Decode("user", cookie.Value, &u); err != nil {
-		return nil, fmt.Errorf("Error decoding cookie: %v", err)
+		return nil, errNotLoggedIn
 	}
 
 	u, err = s.userDB.User(u.ID)
+	if err == db.ErrUserNotFound {
+		return nil, errNotLoggedIn
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("User not found in system...probably: %v", err)
+		return nil, fmt.Errorf("failed to retrieve user: %v", err)
 	}
 
 	return u, nil
@@ -531,11 +600,13 @@ func (s *Srv) user(r *http.Request) (*db.User, error) {
 
 func jsonErr(w http.ResponseWriter, err error) {
 	json.NewEncoder(w).Encode(struct {
-		Error   bool
-		Message string
+		Error       bool
+		Message     string
+		NotLoggedIn bool
 	}{
-		Error:   true,
-		Message: err.Error(),
+		Error:       true,
+		Message:     err.Error(),
+		NotLoggedIn: err == errNotLoggedIn,
 	})
 }
 

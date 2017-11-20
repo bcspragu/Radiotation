@@ -54,15 +54,13 @@ export default {
         musicSource: this.musicSource,
         shuffleOrder: this.shuffleOrder
       }
-      var vue = this
-      vue.$http.post('/room', data, {emulateJSON: true}).then(response => {
+      this.$http.post('/room', data, {emulateJSON: true}).then(response => {
         var data = JSON.parse(response.body)
         if (data.Error) {
-          // TODO: Handle error
-          console.log(data.Error)
+          this.$emit('ajaxErr', data)
           return
         }
-        vue.$router.push({name: 'Room', params: {id: data.ID}})
+        this.$router.push({name: 'Room', params: {id: data.ID}})
       })
     }
   }
