@@ -89,14 +89,28 @@ func (s *Srv) initHandlers() {
 	s.r = mux.NewRouter()
 	s.r.HandleFunc("/", s.serveHome).Methods("GET")
 	s.r.HandleFunc("/user", s.serveUser).Methods("GET")
-	s.r.HandleFunc("/verifyToken", s.serveVerifyToken)
-	s.r.HandleFunc("/room", s.withLogin(s.serveCreateRoom)).Methods("POST")
-	s.r.HandleFunc("/room/{id}", s.withLogin(s.serveRoom)).Methods("GET")
-	s.r.HandleFunc("/room/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
-	s.r.HandleFunc("/room/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
-	s.r.HandleFunc("/room/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
+	// Verifying login and storing a cookie.
+	s.r.HandleFunc("/verifyToken", s.serveVerifyToken).Methods("POST")
+	// Load room information for a user.
+	s.r.HandleFunc("/room/{id}", s.withRoomAndUser(s.serveRoom)).Methods("GET")
+	// Search for a song.
+	s.r.HandleFunc("/room/{id}/search", s.withRoomAndUser(s.serveSearch)).Methods("GET")
+
+	// Get the next song. This should be a POST action, but its GET for
+	// debugging.
 	s.r.HandleFunc("/room/{id}/pop", s.serveSong).Methods("GET")
-	s.r.HandleFunc("/ws", s.withLogin(s.serveData))
+
+	// Create a room.
+	s.r.HandleFunc("/room", s.serveCreateRoom).Methods("POST")
+	// Add a song to a queue.
+	s.r.HandleFunc("/room/{id}/add", s.withRoomAndUser(s.addToQueue)).Methods("POST")
+	// Remove a song from a queue.
+	s.r.HandleFunc("/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue)).Methods("POST")
+
+	// WebSocket handler for new songs.
+	s.r.HandleFunc("/room/{id}/ws", s.serveData)
+
+	// Static asset serving
 	s.r.PathPrefix("/assets/").
 		Handler(http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/static/"))))
 }
@@ -107,10 +121,10 @@ func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Srv) serveHome(w http.ResponseWriter, r *http.Request) {
 	js := template.HTML("/assets/app.js")
-	ws := template.JSStr(fmt.Sprintf("wss://%s/ws", r.Host))
+	ws := template.JSStr(fmt.Sprintf("wss://%s", r.Host))
 	if s.cfg.Dev {
 		js = template.HTML("//localhost:8081/app.js")
-		ws = template.JSStr(fmt.Sprintf("ws://%s/ws", r.Host))
+		ws = template.JSStr(fmt.Sprintf("ws://%s", r.Host))
 	}
 	if err := s.tmpl.ExecuteTemplate(w, "index.html", struct {
 		ClientID      string
@@ -130,24 +144,11 @@ func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, u)
 }
 
-func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request) {
-	u, err := s.user(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
-	rm, err := s.getRoom(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
+func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
 	trackID := r.FormValue("id")
 	track, err := s.track(rm, trackID)
 	if err != nil {
-		jsonErr(w, err)
-		return
+		return err
 	}
 
 	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
@@ -155,43 +156,28 @@ func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResp(w, struct{ ID string }{trackID})
+	return nil
 }
 
-func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
-	u, err := s.user(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
-	rm, err := s.getRoom(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
+func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
 	idx, err := strconv.Atoi(r.FormValue("index"))
 	if err != nil {
-		jsonErr(w, err)
-		return
+		return err
 	}
 
 	queue, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
 	if err != nil {
-		jsonErr(w, err)
-		return
+		return err
 	}
 
 	// If there are less tracks than the index, it's invalid.
 	if len(queue.Tracks) <= idx {
-		jsonErr(w, fmt.Errorf("asked to remove track index %d, only have %d tracks", idx, len(queue.Tracks)))
-		return
+		return fmt.Errorf("asked to remove track index %d, only have %d tracks", idx, len(queue.Tracks))
 	}
 
 	// If we're already passed the index, it's invalid.
 	if idx < queue.Offset {
-		jsonErr(w, fmt.Errorf("asked to remove track index %d, we're passed that on index %d", idx, queue.Offset))
-		return
+		return fmt.Errorf("asked to remove track index %d, we're passed that on index %d", idx, queue.Offset)
 	}
 
 	if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, idx); err != nil {
@@ -199,13 +185,14 @@ func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResp(w, struct{}{})
+	return nil
 }
 
 func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 }
 
 func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
+	rm, err := s.room(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
@@ -234,7 +221,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, err)
 		return
 	}
-	s.h.Broadcast(buf.Bytes())
+	s.h.BroadcastRoom(buf.Bytes(), rm)
 
 	type trackResponse struct {
 		Error   bool
@@ -302,67 +289,38 @@ func musicServiceByName(name string) db.MusicService {
 	return typ
 }
 
-func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
-	u, err := s.user(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
-	rm, err := s.getRoom(r)
-	if err != nil {
-		jsonErr(w, errors.New("room not found"))
-		return
-	}
-
+func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
 	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
 	if err != nil && err != db.ErrQueueNotFound {
-		jsonErr(w, err)
-		return
+		return err
 	}
 
 	if err == db.ErrQueueNotFound {
 		log.Printf("Adding user %s to room %s", u.ID, rm.ID)
 		if q, err = s.AddUser(rm.ID, u.ID); err != nil {
-			jsonErr(w, err)
-			return
+			return err
 		}
 	}
 
 	t := s.nowPlaying(rm.ID)
 
-	if err := json.NewEncoder(w).Encode(struct {
+	jsonResp(w, struct {
 		Room  *db.Room
 		Queue []music.Track
 		Track *music.Track
-	}{rm, q.Tracks, t}); err != nil {
-		serveError(w, err)
-	}
+	}{rm, q.Tracks, t})
+	return nil
 }
 
-func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
-	u, err := s.user(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
-	rm, err := s.getRoom(r)
-	if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
+func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
 	tracks, err := s.search(rm, r.FormValue("query"))
 	if err != nil {
-		jsonErr(w, err)
-		return
+		return err
 	}
 
 	queue, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
 	if err != nil {
-		jsonErr(w, err)
-		return
+		return err
 	}
 
 	inQueue := make(map[string]int)
@@ -387,17 +345,25 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResp(w, tracksInQueue)
+	return nil
 }
 
 // serveData handles websocket requests from the peer trying to connect.
 func (s *Srv) serveData(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
+	rm, err := s.room(r)
 	if err != nil {
-		serveError(w, err)
+		jsonErr(w, err)
 		return
 	}
 
-	s.h.Register(ws)
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	// Register this connection with a room, and start reading from it.
+	s.h.Register(ws, rm)
 }
 
 func (s *Srv) nowPlaying(rid db.RoomID) *music.Track {
@@ -485,13 +451,6 @@ func (s *Srv) AddUser(rid db.RoomID, id db.UserID) (*db.Queue, error) {
 	return s.queueDB.Queue(db.QueueID{RoomID: rid, UserID: id})
 }
 
-func (s *Srv) withLogin(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Reintroduce login check
-		handler(w, r)
-	}
-}
-
 func (s *Srv) createUser(w http.ResponseWriter, u *db.User) {
 	if encoded, err := s.sc.Encode("user", u); err == nil {
 		cookie := &http.Cookie{
@@ -516,44 +475,6 @@ func serveError(w http.ResponseWriter, err error) {
 	log.Printf("Error: %v\n", err)
 }
 
-func roomID(r *http.Request) db.RoomID {
-	return db.Normalize(mux.Vars(r)["id"])
-}
-
-func (s *Srv) getRoom(r *http.Request) (*db.Room, error) {
-	id := roomID(r)
-	rm, err := s.roomDB.Room(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return rm, nil
-}
-
-func (s *Srv) user(r *http.Request) (*db.User, error) {
-	cookie, err := r.Cookie("user")
-
-	if err != nil {
-		return nil, errNotLoggedIn
-	}
-
-	var u *db.User
-	if err := s.sc.Decode("user", cookie.Value, &u); err != nil {
-		return nil, errNotLoggedIn
-	}
-
-	u, err = s.userDB.User(u.ID)
-	if err == db.ErrUserNotFound {
-		return nil, errNotLoggedIn
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve user: %v", err)
-	}
-
-	return u, nil
-}
-
 func jsonErr(w http.ResponseWriter, err error) {
 	log.Printf("Returning error to client: %v", err)
 	json.NewEncoder(w).Encode(struct {
@@ -571,7 +492,7 @@ func jsonErr(w http.ResponseWriter, err error) {
 
 func jsonResp(w http.ResponseWriter, v interface{}) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		serveError(w, err)
+		log.Printf("jsonResp: %v", err)
 	}
 }
 

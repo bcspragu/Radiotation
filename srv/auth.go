@@ -10,9 +10,6 @@ import (
 )
 
 func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		return
-	}
 	token := r.PostFormValue("token")
 	ti, err := s.verifyIdToken(token)
 	if err != nil {

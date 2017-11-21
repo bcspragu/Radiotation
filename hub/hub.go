@@ -1,6 +1,10 @@
 package hub
 
 import (
+	"fmt"
+	"math/rand"
+
+	"github.com/bcspragu/Radiotation/db"
 	"github.com/gorilla/websocket"
 )
 
@@ -8,10 +12,10 @@ import (
 // connections.
 type Hub struct {
 	// Registered connections.
-	connections map[*connection]bool
+	connections map[db.RoomID][]*connection
 
 	// Inbound messages from the connections.
-	broadcast chan []byte
+	broadcast chan *broadcastMsg
 
 	// Register requests from the connections.
 	register chan *connection
@@ -20,12 +24,13 @@ type Hub struct {
 	unregister chan *connection
 }
 
+// New creates a new Hub and starts it in a background Go routine.
 func New() *Hub {
 	h := &Hub{
-		broadcast:   make(chan []byte),
+		broadcast:   make(chan *broadcastMsg),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
-		connections: make(map[*connection]bool),
+		connections: make(map[db.RoomID][]*connection),
 	}
 	go h.run()
 	return h
@@ -35,33 +40,57 @@ func (h *Hub) run() {
 	for {
 		select {
 		case c := <-h.register:
-			h.connections[c] = true
+			conns := h.connections[c.rm.ID]
+			h.connections[c.rm.ID] = append(conns, c)
 		case c := <-h.unregister:
-			if _, ok := h.connections[c]; ok {
-				delete(h.connections, c)
-				close(c.send)
-			}
+			h.deleteConn(c)
 		case m := <-h.broadcast:
-			for c := range h.connections {
+			for _, c := range h.connections[m.roomID] {
 				select {
-				case c.send <- m:
+				case c.send <- m.msg:
 				default:
-					close(c.send)
-					delete(h.connections, c)
+					h.deleteConn(c)
 				}
 			}
 		}
 	}
 }
 
-func (h *Hub) Broadcast(msg []byte) {
-	h.broadcast <- msg
+func (h *Hub) deleteConn(c *connection) {
+	close(c.send)
+	rconns := h.connections[c.rm.ID]
+	for i, rconn := range rconns {
+		if rconn.id == c.id {
+			// Remove the connection.
+			copy(rconns[i:], rconns[i+1:])
+			rconns[len(rconns)-1] = nil
+			h.connections[c.rm.ID] = rconns[:len(rconns)-1]
+			return
+		}
+	}
 }
 
-// Register associates a connection with the hub.
-func (h *Hub) Register(ws *websocket.Conn) {
-	conn := &connection{h: h, send: make(chan []byte, 256), ws: ws}
+type broadcastMsg struct {
+	roomID db.RoomID
+	msg    []byte
+}
+
+// BroadcastRoom sends a message to everyone in a room.
+func (h *Hub) BroadcastRoom(msg []byte, rm *db.Room) {
+	h.broadcast <- &broadcastMsg{
+		roomID: rm.ID,
+		msg:    msg,
+	}
+}
+
+// Register associates a connection with the hub and a given room.
+func (h *Hub) Register(ws *websocket.Conn, rm *db.Room) {
+	conn := &connection{id: newID(rm), h: h, rm: rm, send: make(chan []byte, 256), ws: ws}
 	h.register <- conn
 	go conn.writePump()
 	go conn.readPump()
+}
+
+func newID(rm *db.Room) string {
+	return fmt.Sprintf("%s-%d", rm.ID, rand.Int63())
 }

@@ -3,6 +3,7 @@ package hub
 import (
 	"time"
 
+	"github.com/bcspragu/Radiotation/db"
 	"github.com/gorilla/websocket"
 )
 
@@ -22,7 +23,10 @@ const (
 
 // connection is an middleman between the websocket connection and the hub.
 type connection struct {
-	h *Hub
+	id string
+	h  *Hub
+	// What room this connection is associated with.
+	rm *db.Room
 	// The websocket connection.
 	ws *websocket.Conn
 

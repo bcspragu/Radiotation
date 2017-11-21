@@ -35,10 +35,6 @@ export default {
 </script>
 
 <style>
-.container {
-  padding: 0;
-}
-
 html, body, #app {
   height: 100%;
 }

@@ -1,17 +1,19 @@
 <template>
   <div class="container">
-    <div class="col-mx-auto col-6 col-sm-10 column instructions">
-      <h3>Instructions</h3>
-      <ol>
-        <li>Log in with you Google Account.</li>
-        <li>Join an existing room with your friends or create a new one.</li>
-        <li>Search for your favorite songs, and add them to your playlist.</li>
-        <li>Open up the Radiotation app for Android and start playing it back.</li>
-      </ol>
-      <p>
-        Radiotation will handle the rest, giving everyone equal playtime in the
-        car (as long as everyone has added music!)
-      </p>
+    <div class="columns">
+      <div class="col-mx-auto col-6 col-sm-10 column instructions">
+        <h3>Instructions</h3>
+        <ol>
+          <li>Log in with you Google Account.</li>
+          <li>Join an existing room with your friends or create a new one.</li>
+          <li>Search for your favorite songs, and add them to your playlist.</li>
+          <li>Open up the Radiotation app for Android and start playing it back.</li>
+        </ol>
+        <p>
+          Radiotation will handle the rest, giving everyone equal playtime in the
+          car (as long as everyone has added music!)
+        </p>
+      </div>
     </div>
     <div v-if="user" class="columns">
       <div class="column col-6 col-sm-12">

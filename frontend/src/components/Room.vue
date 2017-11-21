@@ -59,7 +59,7 @@ export default {
   },
   methods: {
     removeSong (track, index) {
-      var url = '/room/' + this.id + '/remove'
+      var url = `/room/${this.id}/remove`
       var data = {index: index, id: track.ID}
       this.$http.post(url, data, {emulateJSON: true}).then(response => {
         var data = JSON.parse(response.body)
@@ -71,7 +71,7 @@ export default {
       })
     },
     fetchRoom () {
-      this.$http.get('/room/' + this.id).then(response => {
+      this.$http.get(`/room/${this.id}`).then(response => {
         var data = JSON.parse(response.body)
         if (data.RoomNotFound) {
           this.$router.push({name: 'CreateRoom', params: {id: this.id}})
@@ -81,7 +81,7 @@ export default {
           this.$emit('ajaxErr', data)
           return
         }
-        this.$emit('updateTitle', 'Room ' + data.Room.DisplayName)
+        this.$emit('updateTitle', `Room '${data.Room.DisplayName}'`)
         this.room = data.Room
         this.queue = data.Queue
         if (!data.Track) {
@@ -104,7 +104,7 @@ export default {
     },
     connectWebSocket () {
       if (window['WebSocket']) {
-        var conn = new WebSocket(window.webSocketAddr)
+        var conn = new WebSocket(`${window.webSocketAddr}/room/${this.id}/ws`)
         conn.onclose = (evt) => {
           console.log(evt)
         }
