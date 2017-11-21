@@ -7,7 +7,7 @@
         <div class="columns col-gapless">
           <div class="column col-10"><track-item v-bind="track"/></div>
           <div class="column col-2 song-op" v-on:click="updateQueueStatus(track, index)">
-            <button class="btn btn-link"><i class="icon" :class="addOrRemove(track.InQueue)"></i></button>
+            <button class="btn btn-link" :class="{disabled: track.InQueue}"><i class="icon" :class="addOrCheck(track.InQueue)"></i></button>
           </div>
         </div>
       </div>
@@ -41,18 +41,17 @@ export default {
     }
   },
   methods: {
-    addOrRemove (inQueue) {
+    addOrCheck (inQueue) {
       return {
         'icon-plus': !inQueue,
-        'icon-cross': inQueue
+        'icon-check': inQueue
       }
     },
     updateQueueStatus (track, index) {
       if (track.InQueue) {
-        this.removeSong(track, index)
-      } else {
-        this.addSong(track, index)
+        return
       }
+      this.addSong(track, index)
     },
     removeSong (track, index) {
       var url = '/room/' + this.roomID + '/remove'

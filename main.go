@@ -37,19 +37,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
-	//f, err := os.Open("inmemdb")
-	//if err != nil && !os.IsNotExist(err) {
-	//// A legitimate error, not just 'the file wasn't found'
-	//log.Fatalf("Failed to open datastore file for reading: %v", err)
-	//}
-
-	//if err == nil {
-	//if err := db.Load(f, idb); err != nil {
-	//f.Close()
-	//log.Fatalf("Failed to load datastore: %v", err)
-	//}
-	//}
-	//f.Close()
 
 	s, err := srv.New(idb, &srv.Config{
 		Dev:      *dev,
@@ -66,17 +53,6 @@ func main() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-c
-		//f, err := os.Create("inmemdb")
-		//if err != nil && !os.IsExist(err) {
-		//// A legitimate error, not just 'the file was found'
-		//log.Fatalf("Failed to open datastore file for writing: %v", err)
-		//}
-		//if err := db.Save(f, idb); err != nil {
-		//log.Fatalf("Failed to save datastore: %v", err)
-		//}
-		//if err := f.Close(); err != nil {
-		//log.Fatalf("Failed to close datastore file: %v", err)
-		//}
 		os.Exit(1)
 	}()
 
