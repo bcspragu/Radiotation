@@ -16,6 +16,9 @@ export default {
       id: this.$route.params.id
     }
   },
+  created () {
+    this.$emit('updateTitle', 'Create a Room')
+  },
   components: {
     'room-form': RoomForm
   }

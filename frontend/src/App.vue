@@ -1,9 +1,9 @@
 <template>
   <div id="app">
     <header class="navbar">
-      <section class="navbar-section">
+      <section class="navbar-section navbar-main">
         <img class="logo" src="assets/radiotation_logo.png">
-        <div class="btn-home btn btn-link">{{title}}</div>
+        <div class="btn-header btn btn-link">{{title}}</div>
       </section>
       <section class="navbar-section"></section>
     </header>
@@ -38,20 +38,37 @@ export default {
 .container {
   padding: 0;
 }
+
+html, body, #app {
+  height: 100%;
+}
 </style>
 
 <style scoped>
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
 .navbar {
   background: #F8F9FA;
+  display: block;
+}
+
+.navbar-main {
+  max-width: 100%;
 }
 
 .logo {
   width:auto;
   height:auto;
-  max-height:60px;
+  max-height:40px;
 }
 
-.btn-home {
-  font-size: 30px;
+.btn-header {
+  font-size: 16px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 </style>

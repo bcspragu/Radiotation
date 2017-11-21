@@ -1,7 +1,8 @@
 <template>
   <div class="track container">
     <div class="columns col-gapless">
-      <div class="thumbnail column col-2"> <img :src="image">
+      <div class="thumbnail column col-2">
+        <img :src="image">
       </div>
       <div class="metadata-holder column col-10">
         <div class="title metadata">{{Name}}</div>

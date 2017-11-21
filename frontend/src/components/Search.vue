@@ -1,7 +1,8 @@
 <template>
   <div class="results">
-    <h4><button v-on:click="goBack" class="btn btn-link btn-back"><i class="icon icon-arrow-left"></i></button>Results for "{{query}}"</h4>
+    <button v-on:click="goBack" class="btn btn-link btn-back btn-lg"><i class="icon icon-arrow-left back-icon"></i>Back to Queue</button>
     <div>
+      <div v-show="noResults" class="no-results text-center">{{noResultsMsg}}</div>
       <div v-for="(track, index) in results" class="container" :key="track.Artist+track.Title+track.Image">
         <div class="columns col-gapless">
           <div class="column col-10"><track-item v-bind="track"/></div>
@@ -21,16 +22,23 @@ export default {
   name: 'Room',
   data () {
     return {
-      roomID: this.$route.params.id,
+      noResultsMsg: 'Loading...',
+      query: this.$route.query.query,
       results: [],
-      query: this.$route.query.query
+      roomID: this.$route.params.id
     }
   },
   components: {
     'track-item': Track
   },
   created () {
+    this.$emit('updateTitle', 'Results for ' + this.query)
     this.search()
+  },
+  computed: {
+    noResults () {
+      return this.results.length === 0
+    }
   },
   methods: {
     addOrRemove (inQueue) {
@@ -81,11 +89,18 @@ export default {
       var data = {query: this.query}
       this.$http.get(url, {params: data, emulateJSON: true}).then(response => {
         var data = JSON.parse(response.body)
+        if (data.RoomNotFound) {
+          this.$router.push({name: 'CreateRoom', params: {id: this.roomID}})
+          return
+        }
         if (data.Error) {
           this.$emit('ajaxErr', data)
           return
         }
         this.results = data
+        if (this.noResults) {
+          this.noResultsMsg = 'No results found'
+        }
       })
     }
   }
@@ -93,9 +108,13 @@ export default {
 </script>
 
 <style scoped>
-.btn-back {
-  margin: 6px;
-  margin-bottom: 8px;
+.back-icon {
+  margin-right: 6px;
+}
+
+.no-results {
+  margin-top: 12px;
+  font-size: 24px;
 }
 
 .song-op {

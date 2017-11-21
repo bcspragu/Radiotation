@@ -5,7 +5,14 @@
         <label for="room" class="form-label">Room Name</label>
       </div>
       <div class="col-9">
-        <input type="text" v-model="roomName" name="room" class="form-input" placeholder="Room Name" value="">
+        <input 
+          v-on:keyup.enter="createRoom"
+          type="text"
+          v-model="roomName"
+          name="room"
+          class="form-input"
+          placeholder="Room Name"
+          value="">
       </div>
     </div>
     <div class="form-group">

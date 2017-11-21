@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <div class="col-mx-auto col-6 column instructions">
+    <div class="col-mx-auto col-6 col-sm-10 column instructions">
       <h3>Instructions</h3>
       <ol>
         <li>Log in with you Google Account.</li>
@@ -48,6 +48,7 @@ export default {
     'room-form': RoomForm
   },
   created () {
+    this.$emit('updateTitle', 'Radiotation')
     this.fetchUser()
   },
   methods: {
@@ -83,6 +84,6 @@ export default {
 
 <style scoped>
 .instructions {
-  margin-top: 2em;
+  margin-top: 1em;
 }
 </style>

@@ -100,10 +100,10 @@ func (s *spotifySongServer) Track(id string) (music.Track, error) {
 	url := fmt.Sprintf("http://api.%s/v1/tracks/%s", s.apiEndpoint, url.QueryEscape(id))
 	req := s.requestWithAuth(url)
 	resp, err := http.DefaultClient.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return music.Track{}, fmt.Errorf("error querying Spotify API: %v", err)
 	}
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return music.Track{}, fmt.Errorf("error reading from Spotify API: %v", err)
@@ -120,10 +120,10 @@ func (s *spotifySongServer) Search(query string) ([]music.Track, error) {
 	url := fmt.Sprintf("http://api.%s/v1/search?q=%s&type=track", s.apiEndpoint, url.QueryEscape(query))
 	req := s.requestWithAuth(url)
 	resp, err := http.DefaultClient.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return []music.Track{}, fmt.Errorf("error querying Spotify API: %v", err)
 	}
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return []music.Track{}, fmt.Errorf("error reading from Spotify API: %v", err)

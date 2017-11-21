@@ -1,7 +1,7 @@
 <template>
   <div class="room-container">
     <div class="input-group">
-      <input type="text" v-model="query" name="search" class="form-input input-lg" placeholder="Search for Music">
+      <input v-on:keyup.enter="goToSearch" type="text" v-model="query" name="search" class="form-input input-lg" placeholder="Search for Music">
       <button v-on:click="goToSearch" class="btn btn-lg input-group-btn"><i class="icon icon-search"></i></button>
     </div>
     <div class="queue">
@@ -17,7 +17,7 @@
         </div>
       </div>
     </div>
-    <div>
+    <div class="now-playing">
       <now-playing/>
     </div>
   </div>
@@ -71,7 +71,7 @@ export default {
           this.$router.push({name: 'CreateRoom', params: {id: this.id}})
           return
         }
-        this.$emit('updateTitle', data.Room.DisplayName)
+        this.$emit('updateTitle', 'Room ' + data.Room.DisplayName)
         this.room = data.Room
         this.queue = data.Queue
         this.nowPlaying = data.Track
@@ -86,12 +86,13 @@ export default {
 
 <style scoped>
 .room-container {
+  flex: 1;
   display: flex;
   flex-direction: column;
 }
 
 .queue {
-  flex: 9;
+  flex: 1;
 }
 
 .divider {
@@ -110,5 +111,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.now-playing {
+  background-color: #F8F9FA;
+  height: 75px;
 }
 </style>

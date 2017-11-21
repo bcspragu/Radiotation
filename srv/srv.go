@@ -129,13 +129,13 @@ func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
+	u, err := s.user(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
 	}
 
-	u, err := s.user(r)
+	rm, err := s.getRoom(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
@@ -156,13 +156,13 @@ func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
+	u, err := s.user(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
 	}
 
-	u, err := s.user(r)
+	rm, err := s.getRoom(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
@@ -203,15 +203,15 @@ func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 }
 
 func (s *Srv) serveQueue(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
-	if err != nil {
-		log.Printf("Couldn't load room: %v", err)
-		return
-	}
-
 	u, err := s.user(r)
 	if err != nil {
 		log.Printf("Couldn't load user: %v", err)
+		return
+	}
+
+	rm, err := s.getRoom(r)
+	if err != nil {
+		log.Printf("Couldn't load room: %v", err)
 		return
 	}
 
@@ -339,15 +339,15 @@ func musicServiceByName(name string) db.MusicService {
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
-	if err != nil {
-		jsonErr(w, errors.New("room not found"))
-		return
-	}
-
 	u, err := s.user(r)
 	if err != nil {
 		jsonErr(w, err)
+		return
+	}
+
+	rm, err := s.getRoom(r)
+	if err != nil {
+		jsonErr(w, errors.New("room not found"))
 		return
 	}
 
@@ -377,13 +377,13 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
+	u, err := s.user(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
 	}
 
-	u, err := s.user(r)
+	rm, err := s.getRoom(r)
 	if err != nil {
 		jsonErr(w, err)
 		return
@@ -412,7 +412,7 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request) {
 		Index   int
 	}
 
-	var tracksInQueue []*trackInQueue
+	tracksInQueue := []*trackInQueue{}
 	for _, t := range tracks {
 		idx, iq := inQueue[t.ID]
 		tracksInQueue = append(tracksInQueue, &trackInQueue{
@@ -568,7 +568,7 @@ func (s *Srv) getRoom(r *http.Request) (*db.Room, error) {
 	id := roomID(r)
 	rm, err := s.roomDB.Room(id)
 	if err != nil {
-		return nil, fmt.Errorf("Error loading room with key %s: %v", id, err)
+		return nil, err
 	}
 
 	return rm, nil
@@ -599,14 +599,17 @@ func (s *Srv) user(r *http.Request) (*db.User, error) {
 }
 
 func jsonErr(w http.ResponseWriter, err error) {
+	log.Printf("Returning error to client: %v", err)
 	json.NewEncoder(w).Encode(struct {
-		Error       bool
-		Message     string
-		NotLoggedIn bool
+		Error        bool
+		Message      string
+		NotLoggedIn  bool
+		RoomNotFound bool
 	}{
-		Error:       true,
-		Message:     err.Error(),
-		NotLoggedIn: err == errNotLoggedIn,
+		Error:        true,
+		Message:      err.Error(),
+		NotLoggedIn:  err == errNotLoggedIn,
+		RoomNotFound: err == db.ErrRoomNotFound,
 	})
 }
 
