@@ -6,7 +6,7 @@
       </div>
       <div class="metadata-holder column col-10">
         <div class="title metadata">{{Name}}</div>
-        <div class="arist metadata">{{artist}}</div>
+        <div class="artist metadata">{{artist}}</div>
         <div class="album metadata">{{Album.Name}}</div>
       </div>
     </div>

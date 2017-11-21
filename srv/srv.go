@@ -1,6 +1,7 @@
 package srv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -92,8 +93,6 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/room", s.withLogin(s.serveCreateRoom)).Methods("POST")
 	s.r.HandleFunc("/room/{id}", s.withLogin(s.serveRoom)).Methods("GET")
 	s.r.HandleFunc("/room/{id}/search", s.withLogin(s.serveSearch)).Methods("GET")
-	s.r.HandleFunc("/room/{id}/queue", s.withLogin(s.serveQueue)).Methods("GET")
-	s.r.HandleFunc("/room/{id}/now", s.withLogin(s.serveNowPlaying)).Methods("GET")
 	s.r.HandleFunc("/room/{id}/add", s.withLogin(s.addToQueue)).Methods("POST")
 	s.r.HandleFunc("/room/{id}/remove", s.withLogin(s.removeFromQueue)).Methods("POST")
 	s.r.HandleFunc("/room/{id}/pop", s.serveSong).Methods("GET")
@@ -108,13 +107,16 @@ func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Srv) serveHome(w http.ResponseWriter, r *http.Request) {
 	js := template.HTML("/assets/app.js")
+	ws := template.JSStr(fmt.Sprintf("wss://%s/ws", r.Host))
 	if s.cfg.Dev {
 		js = template.HTML("//localhost:8081/app.js")
+		ws = template.JSStr(fmt.Sprintf("ws://%s/ws", r.Host))
 	}
 	if err := s.tmpl.ExecuteTemplate(w, "index.html", struct {
-		ClientID string
-		JS       template.HTML
-	}{s.cfg.ClientID, (js)}); err != nil {
+		ClientID      string
+		JS            template.HTML
+		WebSocketAddr template.JSStr
+	}{s.cfg.ClientID, js, ws}); err != nil {
 		serveError(w, err)
 	}
 }
@@ -202,49 +204,10 @@ func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request) {
 func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 }
 
-func (s *Srv) serveQueue(w http.ResponseWriter, r *http.Request) {
-	u, err := s.user(r)
-	if err != nil {
-		log.Printf("Couldn't load user: %v", err)
-		return
-	}
-
-	rm, err := s.getRoom(r)
-	if err != nil {
-		log.Printf("Couldn't load room: %v", err)
-		return
-	}
-
-	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
-	if err != nil {
-		log.Printf("Couldn't load queue: %v", err)
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(q); err != nil {
-		serveError(w, err)
-	}
-}
-
-func (s *Srv) serveNowPlaying(w http.ResponseWriter, r *http.Request) {
-	rm, err := s.getRoom(r)
-	if err != nil {
-		log.Printf("Couldn't load room: %v", err)
-		return
-	}
-
-	t := s.nowPlaying(rm.ID)
-
-	if err := json.NewEncoder(w).Encode(t); err != nil {
-		serveError(w, err)
-	}
-}
-
 func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	rm, err := s.getRoom(r)
 	if err != nil {
-		log.Printf("Couldn't load room: %v", err)
+		jsonErr(w, err)
 		return
 	}
 
@@ -253,7 +216,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, errors.New("No tracks to choose from"))
 		return
 	} else if err != nil {
-		log.Printf("Couldn't pop track: %v", err)
+		jsonErr(w, err)
 		return
 	}
 
@@ -262,15 +225,16 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		UserID: u.ID,
 	})
 	if err != nil {
-		log.Printf("Failed to add track to history for room %s, moving on: %v", rm.ID, err)
+		jsonErr(w, fmt.Errorf("failed to add track %v from user %s to history for room %s: %v", t, u.ID, rm.ID, err))
+		return
 	}
 
-	// Let the user know we're playing their track
-	//if c, ok := s.h.userconns[u]; ok {
-	// TODO: Send more info, so the user can render stuff appropriately.
-	s.h.Broadcast([]byte("pop"))
-	//}
-	s.h.Broadcast([]byte("playing"))
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(t); err != nil {
+		jsonErr(w, err)
+		return
+	}
+	s.h.Broadcast(buf.Bytes())
 
 	type trackResponse struct {
 		Error   bool
@@ -370,7 +334,7 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(struct {
 		Room  *db.Room
 		Queue []music.Track
-		Track music.Track
+		Track *music.Track
 	}{rm, q.Tracks, t}); err != nil {
 		serveError(w, err)
 	}
@@ -436,16 +400,16 @@ func (s *Srv) serveData(w http.ResponseWriter, r *http.Request) {
 	s.h.Register(ws)
 }
 
-func (s *Srv) nowPlaying(rid db.RoomID) music.Track {
+func (s *Srv) nowPlaying(rid db.RoomID) *music.Track {
 	ts, err := s.historyDB.History(rid)
 	if err != nil {
 		log.Printf("Couldn't load history of tracks for room %s: %v", rid, err)
 	}
 
 	if len(ts) > 0 {
-		return ts[len(ts)-1]
+		return &ts[len(ts)-1]
 	}
-	return music.Track{}
+	return nil
 }
 
 func (s *Srv) popTrack(rid db.RoomID) (*db.User, music.Track, error) {
@@ -487,15 +451,7 @@ func (s *Srv) popTrack(rid db.RoomID) (*db.User, music.Track, error) {
 			continue
 		}
 
-		t := q.NextTrack()
-		if err := s.historyDB.AddToHistory(rid, &db.TrackEntry{
-			UserID: u.ID,
-			Track:  t,
-		}); err != nil {
-			log.Printf("Failed to add track %v from user %s to history for room %s: %v", t, u.ID, rid, err)
-		}
-
-		return u, t, nil
+		return u, q.NextTrack(), nil
 	}
 	return nil, music.Track{}, errNoTracks
 }

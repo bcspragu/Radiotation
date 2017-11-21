@@ -21,12 +21,14 @@ type Hub struct {
 }
 
 func New() *Hub {
-	return &Hub{
+	h := &Hub{
 		broadcast:   make(chan []byte),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
 		connections: make(map[*connection]bool),
 	}
+	go h.run()
+	return h
 }
 
 func (h *Hub) run() {

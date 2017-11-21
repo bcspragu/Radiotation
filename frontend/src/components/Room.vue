@@ -4,8 +4,8 @@
       <input v-on:keyup.enter="goToSearch" type="text" v-model="query" name="search" class="form-input input-lg" placeholder="Search for Music">
       <button v-on:click="goToSearch" class="btn btn-lg input-group-btn"><i class="icon icon-search"></i></button>
     </div>
+    <div class="divider">Your Queue</div>
     <div class="queue">
-      <div class="divider">Your Queue</div>
       <div class="queue">
         <div v-for="(track, index) in queue" class="container" :key="track.Artist+track.Title+track.Image">
           <div class="columns col-gapless">
@@ -17,8 +17,9 @@
         </div>
       </div>
     </div>
+      <div class="divider">Now Playing</div>
     <div class="now-playing">
-      <now-playing/>
+      <now-playing v-bind="nowPlaying"/>
     </div>
   </div>
 </template>
@@ -34,7 +35,15 @@ export default {
     return {
       id: this.$route.params.id,
       room: {ID: '', DisplayName: ''},
-      nowPlaying: null,
+      nowPlaying: {
+        Name: 'Nothing Playing Yet',
+        Artists: [{Name: ''}],
+        Album: {
+          Name: '',
+          Images: [{URL: 'http://via.placeholder.com/150x150'}]
+        },
+        NoTrack: true
+      },
       queue: [],
       query: ''
     }
@@ -46,6 +55,7 @@ export default {
   },
   created () {
     this.fetchRoom()
+    this.connectWebSocket()
   },
   methods: {
     removeSong (track, index) {
@@ -63,22 +73,45 @@ export default {
     fetchRoom () {
       this.$http.get('/room/' + this.id).then(response => {
         var data = JSON.parse(response.body)
-        if (data.NotLoggedIn) {
-          this.$emit('ajaxErr', data)
+        if (data.RoomNotFound) {
+          this.$router.push({name: 'CreateRoom', params: {id: this.id}})
           return
         }
         if (data.Error) {
-          this.$router.push({name: 'CreateRoom', params: {id: this.id}})
+          this.$emit('ajaxErr', data)
           return
         }
         this.$emit('updateTitle', 'Room ' + data.Room.DisplayName)
         this.room = data.Room
         this.queue = data.Queue
-        this.nowPlaying = data.Track
+        if (!data.Track) {
+          this.nowPlaying = {
+            Name: 'Nothing Playing Yet',
+            Artists: [{Name: ''}],
+            Album: {
+              Name: '',
+              Images: [{URL: 'http://via.placeholder.com/150x150'}]
+            },
+            NoTrack: true
+          }
+        } else {
+          this.nowPlaying = data.Track
+        }
       })
     },
     goToSearch () {
       this.$router.push({name: 'Search', params: {roomID: this.id}, query: {query: this.query}})
+    },
+    connectWebSocket () {
+      if (window['WebSocket']) {
+        var conn = new WebSocket(window.webSocketAddr)
+        conn.onclose = (evt) => {
+          console.log(evt)
+        }
+        conn.onmessage = (evt) => {
+          this.nowPlaying = JSON.parse(evt.data)
+        }
+      }
     }
   }
 }
@@ -93,17 +126,16 @@ export default {
 
 .queue {
   flex: 1;
+  overflow: auto;
 }
 
 .divider {
   margin: 0;
-  font-size: 20px;
-  height: 24px;
-  line-height: 22px;
-  background: #F8F9FA;
-  border-top: 2px solid #F0F1F2;
-  border-bottom: 2px solid #F0F1F2;
-  font-color: white;
+  font-size: 10px;
+  height: 18px;
+  line-height: 16px;
+  background-color: #555;
+  color: white;
   text-align: center;
 }
 
