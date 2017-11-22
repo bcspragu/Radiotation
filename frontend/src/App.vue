@@ -2,7 +2,7 @@
   <div id="app">
     <header class="navbar">
       <section class="navbar-section navbar-main">
-        <img class="logo" src="assets/radiotation_logo.png">
+        <img class="logo" src="static/radiotation_logo.png">
         <div class="btn-header btn btn-link">{{title}}</div>
       </section>
       <section class="navbar-section"></section>

@@ -56,12 +56,6 @@ export default {
     this.connectWebSocket()
   },
   methods: {
-    scrollToNext () {
-      var queue = this.$el.querySelector('.queue')
-      var next = this.$el.querySelector('.not-played')
-      var rect = next.getBoundingClientRect()
-      queue.scrollTop = rect.top
-    },
     removeSong (track, index) {
       var url = `/room/${this.id}/remove`
       var data = {index: index, id: track.ID}
@@ -74,7 +68,7 @@ export default {
         this.queue.splice(index, 1)
       })
     },
-    fetchRoom (scroll) {
+    fetchRoom () {
       this.$http.get(`/room/${this.id}`).then(response => {
         var data = JSON.parse(response.body)
         if (data.RoomNotFound) {
@@ -101,11 +95,6 @@ export default {
         } else {
           this.nowPlaying = data.Track
         }
-        if (scroll) {
-          this.$nextTick(() => {
-            this.scrollToNext()
-          })
-        }
       })
     },
     goToSearch () {
@@ -118,7 +107,7 @@ export default {
           console.log(evt)
         }
         conn.onmessage = (evt) => {
-          this.fetchRoom(false)
+          this.fetchRoom()
         }
       }
     }

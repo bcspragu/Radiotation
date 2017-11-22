@@ -14,6 +14,6 @@
     <script type="text/javascript">
       window.webSocketAddr = "{{.WebSocketAddr}}";
     </script>
-    <script src="{{.JS}}"></script>
+    {{if .JS}}<script src="{{.JS}}"></script>{{end}}
   </body>
 </html>

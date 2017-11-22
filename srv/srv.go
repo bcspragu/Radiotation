@@ -66,10 +66,15 @@ func New(sdb db.DB, cfg *Config) (http.Handler, error) {
 		log.Fatalf("Failed to get provider for Google: %v", err)
 	}
 
+	glob := "frontend/dist/*.html"
+	if cfg.Dev {
+		glob = "frontend/*.html"
+	}
+
 	s := &Srv{
 		sc:   sc,
 		h:    hub.New(),
-		tmpl: template.Must(template.ParseGlob("frontend/*.html")),
+		tmpl: template.Must(template.ParseGlob(glob)),
 		cfg:  cfg,
 		googleVerifier: googleProvider.Verifier(&oidc.Config{
 			ClientID: cfg.ClientID,
@@ -111,8 +116,13 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/room/{id}/ws", s.serveData)
 
 	// Static asset serving
-	s.r.PathPrefix("/assets/").
-		Handler(http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/static/"))))
+	if s.cfg.Dev {
+		s.r.PathPrefix("/static/").
+			Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("frontend/static/"))))
+	} else {
+		s.r.PathPrefix("/static/").
+			Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("frontend/dist/static/"))))
+	}
 }
 
 func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -120,8 +130,8 @@ func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) serveHome(w http.ResponseWriter, r *http.Request) {
-	js := template.HTML("/assets/app.js")
 	ws := template.JSStr(fmt.Sprintf("wss://%s", r.Host))
+	var js template.HTML
 	if s.cfg.Dev {
 		js = template.HTML("//localhost:8081/app.js")
 		ws = template.JSStr(fmt.Sprintf("ws://%s", r.Host))
