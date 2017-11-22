@@ -4,7 +4,7 @@
       <div class="col-mx-auto col-6 col-sm-10 column instructions">
         <h3>Instructions</h3>
         <ol>
-          <li>Log in with you Google Account.</li>
+          <li>Log in with your Google Account.</li>
           <li>Join an existing room with your friends or create a new one.</li>
           <li>Search for your favorite songs, and add them to your playlist.</li>
           <li>Open up the Radiotation app for Android and start playing it back.</li>
