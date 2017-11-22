@@ -25,7 +25,7 @@ export default {
     },
     handleError (data) {
       if (data && data.NotLoggedIn) {
-        this.$router.push({name: 'Home'})
+        this.$router.push({name: 'Home', query: {redirect: this.$route.path}})
         return
       }
       console.log(data)

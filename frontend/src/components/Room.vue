@@ -102,7 +102,7 @@ export default {
     },
     connectWebSocket () {
       if (window['WebSocket']) {
-        var conn = new WebSocket(`${window.webSocketAddr}/room/${this.id}/ws`)
+        var conn = new WebSocket(`${window.webSocketAddr}/ws/room/${this.id}`)
         conn.onclose = (evt) => {
           console.log(evt)
         }

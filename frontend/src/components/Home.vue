@@ -16,15 +16,15 @@
       </div>
     </div>
     <div v-if="user" class="columns">
+      <div v-if="rooms.length > 0" class="column col-6 col-sm-12">
+        <h2 class="text-center">Available Rooms</h2>
+        <div class="text-center available-room" v-for="room in rooms">
+          <router-link :to="{ name: 'Room', params: { id: room.ID }}">{{room.DisplayName}}</router-link>
+        </div>
+      </div>
       <div class="column col-6 col-sm-12">
         <h2 class="text-center">New Room</h2>
         <room-form></room-form>
-      </div>
-      <div class="column col-6 col-sm-12">
-        <h2 class="text-center">Available Rooms</h2>
-        <ul>
-          <li v-for="room in rooms">{{ room }}</li>
-        </ul>
       </div>
     </div>
     <div v-else class="columns signin-holder">
@@ -43,7 +43,8 @@ export default {
   data () {
     return {
       user: null,
-      rooms: []
+      rooms: [],
+      redirect: this.$route.query.redirect
     }
   },
   components: {
@@ -52,6 +53,7 @@ export default {
   created () {
     this.$emit('updateTitle', 'Radiotation')
     this.fetchUser()
+    this.fetchRooms()
   },
   methods: {
     fetchUser () {
@@ -73,7 +75,20 @@ export default {
         }
       })
     },
+    fetchRooms () {
+      this.$http.get(`/rooms`).then(response => {
+        var data = JSON.parse(response.body)
+        if (data.Error) {
+          this.$emit('ajaxErr', data)
+          return
+        }
+        this.rooms = data
+      })
+    },
     onSignIn (googleUser) {
+      if (this.redirect) {
+        this.$router.push({path: this.redirect})
+      }
       if (this.user) {
         return
       }
@@ -87,5 +102,9 @@ export default {
 <style scoped>
 .instructions {
   margin-top: 1em;
+}
+
+.available-room {
+  font-size: 24px;
 }
 </style>

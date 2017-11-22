@@ -96,6 +96,7 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/user", s.serveUser).Methods("GET")
 	// Verifying login and storing a cookie.
 	s.r.HandleFunc("/verifyToken", s.serveVerifyToken).Methods("POST")
+	s.r.HandleFunc("/rooms", s.serveRooms).Methods("GET")
 	// Load room information for a user.
 	s.r.HandleFunc("/room/{id}", s.withRoomAndUser(s.serveRoom)).Methods("GET")
 	// Search for a song.
@@ -113,7 +114,7 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue)).Methods("POST")
 
 	// WebSocket handler for new songs.
-	s.r.HandleFunc("/room/{id}/ws", s.serveData)
+	s.r.HandleFunc("/ws/room/{id}", s.serveData)
 
 	// Static asset serving
 	if s.cfg.Dev {
@@ -297,6 +298,15 @@ func musicServiceByName(name string) db.MusicService {
 		typ = db.PlayMusic
 	}
 	return typ
+}
+
+func (s *Srv) serveRooms(w http.ResponseWriter, r *http.Request) {
+	rooms, err := s.roomDB.Rooms()
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+	jsonResp(w, rooms)
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
