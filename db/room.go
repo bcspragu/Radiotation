@@ -26,7 +26,7 @@ type (
 	Room struct {
 		ID           RoomID
 		DisplayName  string
-		Rotator      Rotator
+		RotatorType  RotatorType
 		MusicService MusicService
 	}
 )
@@ -70,7 +70,7 @@ func (r RotatorType) String() string {
 	return "Unknown"
 }
 
-func NewRotator(r RotatorType) Rotator {
+func newRotator(r RotatorType) Rotator {
 	switch r {
 	case RoundRobin:
 		return &roundRobinRotator{}

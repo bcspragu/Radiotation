@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bcspragu/Radiotation/music"
@@ -23,6 +24,7 @@ var (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
   rotator BLOB NOT NULL,
+	rotator_type INTEGER NOT NULL,
 	music_service INTEGER NOT NULL
 )`
 
@@ -31,6 +33,7 @@ var (
 	user_id TEXT NOT NULL,
 	offset INTEGER DEFAULT 0,
 	tracks BLOB NOT NULL,
+	joined_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	FOREIGN KEY (room_id) REFERENCES Rooms(id),
 	FOREIGN KEY (user_id) REFERENCES Users(id),
 	PRIMARY KEY (room_id, user_id)
@@ -38,22 +41,32 @@ var (
 
 	createHistoryTableStmt = `CREATE TABLE IF NOT EXISTS History (
 	room_id TEXT PRIMARY KEY,
-	tracks BLOB NOT NULL,
+	track_entries BLOB NOT NULL,
 	FOREIGN KEY (room_id) REFERENCES Rooms(id)
 )`
 
-	getRoomStmt  = `SELECT id, display_name, rotator, music_service FROM Rooms WHERE id = ?`
-	getRoomsStmt = `SELECT id, display_name, rotator, music_service FROM Rooms`
-	addRoomStmt  = `INSERT INTO Rooms (id, display_name, rotator, music_service) VALUES (?, ?, ?, ?)`
+	getRoomStmt  = `SELECT id, display_name, rotator_type, music_service FROM Rooms WHERE id = ?`
+	getRoomsStmt = `SELECT id, display_name, rotator_type, music_service FROM Rooms`
+	addRoomStmt  = `INSERT INTO Rooms (id, display_name, rotator, rotator_type, music_service) VALUES (?, ?, ?, ?, ?)`
+
+	getRotatorStmt = `SELECT rotator FROM Rooms WHERE id = ?`
+
+	updateRotatorStmt = `UPDATE Rooms SET rotator = ? WHERE id = ?`
 
 	getUserStmt        = `SELECT id, first_name, last_name FROM Users WHERE id = ?`
-	getUsersInRoomStmt = `SELECT user_id FROM Queues WHERE room_id = ?`
+	getUsersStmt       = `SELECT id, first_name, last_name FROM Users WHERE id IN (%s)`
+	getUsersInRoomStmt = `SELECT user_id FROM Queues WHERE room_id = ? ORDER BY joined_at`
 	addUserStmt        = `INSERT INTO Users (id, first_name, last_name) VALUES (?, ?, ?)`
 
 	addQueueStmt = `INSERT INTO Queues (room_id, user_id, tracks) VALUES (?, ?, ?)`
 	getQueueStmt = `SELECT room_id, user_id, offset, tracks FROM Queues WHERE room_id = ? AND user_id = ?`
 
+	updateOffsetStmt = `UPDATE Queues SET offset = ? WHERE room_id = ? AND user_id = ?`
 	updateTracksStmt = `UPDATE Queues SET tracks = ? WHERE room_id = ? AND user_id = ?`
+
+	createHistoryStmt = `INSERT INTO History (room_id, track_entries) VALUES (?, ?)`
+	getHistoryStmt    = `SELECT track_entries FROM History WHERE room_id = ?`
+	updateHistoryStmt = `UPDATE History SET track_entries = ? WHERE room_id = ?`
 )
 
 // sqlDB implements the Radiotation database API, backed by a SQLite database.
@@ -104,6 +117,20 @@ type scanner interface {
 	Scan(dest ...interface{}) error
 }
 
+func loadTrackEntries(s scanner) ([]*TrackEntry, error) {
+	var tBytes []byte
+	if err := s.Scan(&tBytes); err != nil {
+		return nil, err
+	}
+
+	var tracks []*TrackEntry
+	if err := gob.NewDecoder(bytes.NewReader(tBytes)).Decode(&tracks); err != nil {
+		return nil, fmt.Errorf("failed to decode tracks: %v", err)
+	}
+
+	return tracks, nil
+}
+
 func loadQueue(s scanner) (*Queue, error) {
 	var qr struct {
 		roomID string
@@ -135,6 +162,37 @@ func loadQueue(s scanner) (*Queue, error) {
 	}, nil
 }
 
+func loadUsers(tx *sql.Tx, rid RoomID) ([]*User, error) {
+	rows, err := tx.Query(getUsersInRoomStmt, string(rid))
+	if err != nil {
+		return nil, err
+	}
+	var uids []interface{}
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+		uids = append(uids, uid)
+	}
+
+	rows, err = tx.Query(fmt.Sprintf(getUsersStmt, sqlInput(len(uids))), uids...)
+	if err != nil {
+		return nil, err
+	}
+
+	var users []*User
+	for rows.Next() {
+		u, err := loadUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+
+	return users, nil
+}
+
 func loadUser(s scanner) (*User, error) {
 	var ur struct {
 		id        string
@@ -156,27 +214,35 @@ func loadUser(s scanner) (*User, error) {
 	}, nil
 }
 
-func loadRoom(s scanner) (*Room, error) {
-	var rr struct {
-		id           string
-		displayName  string
-		rBytes       []byte
-		musicService int
-	}
-	if err := s.Scan(&rr.id, &rr.displayName, &rr.rBytes, &rr.musicService); err != nil {
+func loadRotator(s scanner) (Rotator, error) {
+	var rBytes []byte
+	if err := s.Scan(&rBytes); err != nil {
 		return nil, err
 	}
 
 	var rot Rotator
-	if err := gob.NewDecoder(bytes.NewReader(rr.rBytes)).Decode(&rot); err != nil {
+	if err := gob.NewDecoder(bytes.NewReader(rBytes)).Decode(&rot); err != nil {
 		return nil, fmt.Errorf("failed to decode rotator: %v", err)
+	}
+	return rot, nil
+}
+
+func loadRoom(s scanner) (*Room, error) {
+	var rr struct {
+		id           string
+		displayName  string
+		rotatorType  int
+		musicService int
+	}
+	if err := s.Scan(&rr.id, &rr.displayName, &rr.rotatorType, &rr.musicService); err != nil {
+		return nil, err
 	}
 
 	return &Room{
 		ID:           RoomID(rr.id),
 		DisplayName:  rr.displayName,
+		RotatorType:  RotatorType(rr.rotatorType),
 		MusicService: MusicService(rr.musicService),
-		Rotator:      rot,
 	}, nil
 }
 
@@ -200,8 +266,100 @@ func (s *sqlDB) Room(rid RoomID) (*Room, error) {
 	return res.room, nil
 }
 
-func (s *sqlDB) NextTrack(RoomID) (music.Track, error) {
-	return music.Track{}, ErrOperationNotImplemented
+func (s *sqlDB) NextTrack(rid RoomID) (*User, music.Track, error) {
+	type result struct {
+		user  *User
+		track music.Track
+		err   error
+	}
+	tChan := make(chan *result)
+	s.dbChan <- func(db *sql.DB) {
+		tx, err := db.Begin()
+		if err != nil {
+			tChan <- &result{err: err}
+			return
+		}
+		defer tx.Rollback()
+
+		rot, err := loadRotator(tx.QueryRow(getRotatorStmt, string(rid)))
+		if err != nil {
+			tChan <- &result{err: err}
+			return
+		}
+
+		users, err := loadUsers(tx, rid)
+		if err != nil {
+			tChan <- &result{err: err}
+			return
+		}
+
+		log.Printf("Looking for a track from %d users", len(users))
+		for i := 0; i < len(users); i++ {
+			idx, last := rot.NextIndex()
+			log.Printf("Got index %d, last %t", idx, last)
+			if last {
+				// Start a rotation with any new users
+				rot.Start(len(users))
+			}
+
+			if idx >= len(users) {
+				tChan <- &result{err: fmt.Errorf("rotator is broken, returned index %d for list of %d users", idx, len(users))}
+				return
+			}
+
+			u := users[idx]
+			if u == nil {
+				log.Printf("everything is broken, returned a nil user at index %d of %d", idx, len(users))
+				continue
+			}
+
+			log.Printf("Loading queue for (%s, %s)", string(rid), u.ID.String())
+			q, err := loadQueue(tx.QueryRow(getQueueStmt, string(rid), u.ID.String()))
+			if err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+
+			t, err := nextTrack(q)
+			if err == ErrNoTracksInQueue {
+				continue
+			}
+			if err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+			if _, err := tx.Exec(updateOffsetStmt, q.Offset+1, string(rid), u.ID.String()); err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+
+			// If we're here, we've got a track, we just need to serialize/save the
+			// rotator, commit the transaction, and go about our business.
+			rBytes, err := rotatorBytes(rot)
+			if err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+
+			if _, err := tx.Exec(updateRotatorStmt, rBytes, string(rid)); err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+
+			if err := tx.Commit(); err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+			tChan <- &result{user: u, track: t}
+			return
+		}
+		tChan <- &result{err: ErrNoTracksInQueue}
+	}
+	res := <-tChan
+	if res.err != nil {
+		return nil, music.Track{}, res.err
+	}
+	return res.user, res.track, nil
 }
 
 func (s *sqlDB) Rooms() ([]*Room, error) {
@@ -238,13 +396,35 @@ func (s *sqlDB) Rooms() ([]*Room, error) {
 func (s *sqlDB) AddRoom(rm *Room) error {
 	errChan := make(chan error)
 	s.dbChan <- func(db *sql.DB) {
-		rBytes, err := rotatorBytes(rm.Rotator)
+		tx, err := db.Begin()
 		if err != nil {
 			errChan <- err
 			return
 		}
-		_, err = db.Exec(addRoomStmt, string(rm.ID), rm.DisplayName, rBytes, int(rm.MusicService))
-		errChan <- err
+		defer tx.Rollback()
+
+		rBytes, err := rotatorBytes(newRotator(rm.RotatorType))
+		if err != nil {
+			errChan <- err
+			return
+		}
+		_, err = tx.Exec(addRoomStmt, string(rm.ID), rm.DisplayName, rBytes, rm.RotatorType, int(rm.MusicService))
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		// Create an empty history list.
+		teBytes, err := trackEntryBytes([]*TrackEntry{})
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if _, err := tx.Exec(createHistoryStmt, string(rm.ID), teBytes); err != nil {
+			errChan <- err
+			return
+		}
+		errChan <- tx.Commit()
 	}
 	return <-errChan
 }
@@ -258,16 +438,61 @@ func rotatorBytes(r Rotator) ([]byte, error) {
 func (s *sqlDB) AddUserToRoom(rid RoomID, uid UserID) error {
 	errChan := make(chan error)
 	s.dbChan <- func(db *sql.DB) {
+		tx, err := db.Begin()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		defer tx.Rollback()
+
+		// Add the queue.
 		tBytes, err := tracksBytes([]music.Track{})
-		_, err = db.Exec(addQueueStmt, string(rid), uid.String(), tBytes)
-		errChan <- err
+		_, err = tx.Exec(addQueueStmt, string(rid), uid.String(), tBytes)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		users, err := loadUsers(tx, rid)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		if len(users) == 1 {
+			if err := startRotator(tx, rid); err != nil {
+				errChan <- err
+				return
+			}
+		}
+		errChan <- tx.Commit()
 	}
 	return <-errChan
+}
+
+func startRotator(tx *sql.Tx, rid RoomID) error {
+	rot, err := loadRotator(tx.QueryRow(getRotatorStmt, string(rid)))
+	if err != nil {
+		return err
+	}
+	rot.Start(1)
+	rBytes, err := rotatorBytes(rot)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(updateRotatorStmt, rBytes, string(rid))
+	return err
 }
 
 func tracksBytes(tracks []music.Track) ([]byte, error) {
 	var buf bytes.Buffer
 	err := gob.NewEncoder(&buf).Encode(tracks)
+	return buf.Bytes(), err
+}
+
+func trackEntryBytes(entries []*TrackEntry) ([]byte, error) {
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(entries)
 	return buf.Bytes(), err
 }
 
@@ -296,30 +521,23 @@ func (s *sqlDB) Users(rid RoomID) ([]*User, error) {
 	uChan := make(chan *result)
 	s.dbChan <- func(db *sql.DB) {
 		tx, err := db.Begin()
+		if err != nil {
+			uChan <- &result{err: err}
+			return
+		}
 		defer tx.Rollback()
+
+		users, err := loadUsers(tx, rid)
 		if err != nil {
 			uChan <- &result{err: err}
 			return
 		}
-		rows, err := tx.Query(getUsersInRoomStmt, string(rid))
-		if err != nil {
-			uChan <- &result{err: err}
-			return
-		}
-		var res result
-		for rows.Next() {
-			u, err := loadUser(rows)
-			if err != nil {
-				uChan <- &result{err: err}
-				return
-			}
-			res.users = append(res.users, u)
-		}
+
 		if err := tx.Commit(); err != nil {
 			uChan <- &result{err: err}
 			return
 		}
-		uChan <- &res
+		uChan <- &result{users: users}
 	}
 	res := <-uChan
 	if res.err != nil {
@@ -376,11 +594,11 @@ func (s *sqlDB) AddTrack(qid QueueID, track music.Track) error {
 	errChan := make(chan error)
 	s.dbChan <- func(db *sql.DB) {
 		tx, err := db.Begin()
-		defer tx.Rollback()
 		if err != nil {
 			errChan <- err
 			return
 		}
+		defer tx.Rollback()
 		q, err := loadQueue(tx.QueryRow(getQueueStmt, string(qid.RoomID), qid.UserID.String()))
 		ts := append(q.Tracks, track)
 		tBytes, err := tracksBytes(ts)
@@ -401,11 +619,11 @@ func (s *sqlDB) RemoveTrack(qid QueueID, idx int) error {
 	errChan := make(chan error)
 	s.dbChan <- func(db *sql.DB) {
 		tx, err := db.Begin()
-		defer tx.Rollback()
 		if err != nil {
 			errChan <- err
 			return
 		}
+		defer tx.Rollback()
 		q, err := loadQueue(tx.QueryRow(getQueueStmt, string(qid.RoomID), qid.UserID.String()))
 		if err != nil {
 			errChan <- err
@@ -440,14 +658,58 @@ func (s *sqlDB) RemoveTrack(qid QueueID, idx int) error {
 	return <-errChan
 }
 
-func (s *sqlDB) History(RoomID) ([]*TrackEntry, error) {
-	return []*TrackEntry{}, ErrOperationNotImplemented
+func (s *sqlDB) History(rid RoomID) ([]*TrackEntry, error) {
+	type result struct {
+		tracks []*TrackEntry
+		err    error
+	}
+	hChan := make(chan *result)
+	s.dbChan <- func(db *sql.DB) {
+		ts, err := loadTrackEntries(db.QueryRow(getHistoryStmt, string(rid)))
+		hChan <- &result{tracks: ts, err: err}
+	}
+	res := <-hChan
+	if res.err == sql.ErrNoRows {
+		return nil, ErrRoomNotFound
+	}
+	if res.err != nil {
+		return nil, fmt.Errorf("failed to load history: %v", res.err)
+	}
+	return res.tracks, nil
 }
 
-func (s *sqlDB) AddToHistory(RoomID, *TrackEntry) error {
-	return ErrOperationNotImplemented
+func (s *sqlDB) AddToHistory(rid RoomID, te *TrackEntry) error {
+	errChan := make(chan error)
+	s.dbChan <- func(db *sql.DB) {
+		tx, err := db.Begin()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		defer tx.Rollback()
+		ts, err := loadTrackEntries(tx.QueryRow(getHistoryStmt, string(rid)))
+		ts = append(ts, te)
+		teBytes, err := trackEntryBytes(ts)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if _, err := tx.Exec(updateHistoryStmt, teBytes, string(rid)); err != nil {
+			errChan <- err
+			return
+		}
+		errChan <- tx.Commit()
+	}
+	return <-errChan
 }
 
 func (s *sqlDB) Close() error {
 	return s.closeFn()
+}
+
+func sqlInput(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return "?" + strings.Repeat(", ?", n-1)
 }

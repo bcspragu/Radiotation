@@ -88,8 +88,8 @@ func (m *memDBImpl) Room(id RoomID) (*Room, error) {
 	return r, nil
 }
 
-func (m *memDBImpl) NextTrack(RoomID) (music.Track, error) {
-	return music.Track{}, ErrOperationNotImplemented
+func (m *memDBImpl) NextTrack(RoomID) (*User, music.Track, error) {
+	return nil, music.Track{}, ErrOperationNotImplemented
 }
 
 func (m *memDBImpl) Rooms() ([]*Room, error) {

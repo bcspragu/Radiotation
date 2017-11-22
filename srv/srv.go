@@ -198,7 +198,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, t, err := s.popTrack(rm.ID)
+	u, t, err := s.roomDB.NextTrack(rm.ID)
 	if err == errNoTracks {
 		jsonErr(w, errors.New("No tracks to choose from"))
 		return
@@ -252,7 +252,7 @@ func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
 		room := &db.Room{
 			ID:           id,
 			DisplayName:  dispName,
-			Rotator:      rotatorByName(r.FormValue("shuffleOrder")),
+			RotatorType:  rotatorTypeByName(r.FormValue("shuffleOrder")),
 			MusicService: musicServiceByName(r.FormValue("musicSource")),
 		}
 
@@ -265,7 +265,7 @@ func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, struct{ ID string }{string(id)})
 }
 
-func rotatorByName(name string) db.Rotator {
+func rotatorTypeByName(name string) db.RotatorType {
 	typ := db.RoundRobin
 	switch name {
 	case "robin":
@@ -275,7 +275,7 @@ func rotatorByName(name string) db.Rotator {
 	case "random":
 		typ = db.Random
 	}
-	return db.NewRotator(typ)
+	return typ
 }
 
 func musicServiceByName(name string) db.MusicService {
@@ -290,25 +290,28 @@ func musicServiceByName(name string) db.MusicService {
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
-	if err != nil && err != db.ErrQueueNotFound {
-		return err
-	}
+	tracks := []music.Track{}
 
-	if err == db.ErrQueueNotFound {
-		log.Printf("Adding user %s to room %s", u.ID, rm.ID)
-		if q, err = s.AddUser(rm.ID, u.ID); err != nil {
+	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
+	if err == nil {
+		tracks = q.Tracks
+	}
+	switch err {
+	case db.ErrQueueNotFound:
+		if err = s.roomDB.AddUserToRoom(rm.ID, u.ID); err != nil {
 			return err
 		}
+	case nil:
+		tracks = q.Tracks
+	default:
+		return err
 	}
-
-	t := s.nowPlaying(rm.ID)
 
 	jsonResp(w, struct {
 		Room  *db.Room
 		Queue []music.Track
 		Track *music.Track
-	}{rm, q.Tracks, t})
+	}{rm, tracks, s.nowPlaying(rm.ID)})
 	return nil
 }
 
@@ -376,81 +379,6 @@ func (s *Srv) nowPlaying(rid db.RoomID) *music.Track {
 		return &ts[len(ts)-1].Track
 	}
 	return nil
-}
-
-func (s *Srv) popTrack(rid db.RoomID) (*db.User, music.Track, error) {
-	r, err := s.roomDB.Room(rid)
-	if err != nil {
-		return nil, music.Track{}, err
-	}
-
-	users, err := s.userDB.Users(rid)
-	if err != nil {
-		return nil, music.Track{}, err
-	}
-
-	// Go through the queues, at most once each
-	for i := 0; i < len(users); i++ {
-		idx, last := r.Rotator.NextIndex()
-		if last {
-			// Start a rotation with any new users
-			r.Rotator.Start(len(users))
-		}
-
-		if idx >= len(users) {
-			return nil, music.Track{}, fmt.Errorf("Rotator is broken, returned index %d for list of %d users", idx, len(users))
-		}
-
-		u := users[idx]
-		if u == nil {
-			log.Printf("everything is broken, returned a nil user at index %d of %d", idx, len(users))
-			continue
-		}
-
-		t, err := s.roomDB.NextTrack(rid)
-		if err == db.ErrNoTracksInQueue {
-			continue
-		}
-
-		if err != nil {
-			log.Printf("error retreiving next track for user %s in room %s: %v", u.ID, rid, err)
-			continue
-		}
-
-		return u, t, nil
-	}
-
-	// We'll only reach this point if there are no tracks in the room.
-	return nil, music.Track{}, errNoTracks
-}
-
-func (s *Srv) AddUser(rid db.RoomID, id db.UserID) (*db.Queue, error) {
-	r, err := s.roomDB.Room(rid)
-	if err != nil {
-		return nil, fmt.Errorf("error loading room %s: %v", rid, err)
-	}
-
-	users, err := s.userDB.Users(rid)
-	if err != nil {
-		return nil, fmt.Errorf("error loading users in room %s: %v", rid, err)
-	}
-
-	for _, u := range users {
-		if u.ID == id {
-			return nil, fmt.Errorf("user %s is already in room %s", id, rid)
-		}
-	}
-
-	// If this is the first user, start the rotation
-	if len(users) == 0 {
-		r.Rotator.Start(1)
-	}
-
-	err = s.roomDB.AddUserToRoom(rid, id)
-	if err != nil {
-		return nil, fmt.Errorf("error adding user %s to room %s: %v", id, rid, err)
-	}
-	return s.queueDB.Queue(db.QueueID{RoomID: rid, UserID: id})
 }
 
 func (s *Srv) createUser(w http.ResponseWriter, u *db.User) {

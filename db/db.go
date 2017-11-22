@@ -25,7 +25,8 @@ type TrackEntry struct {
 
 type RoomDB interface {
 	Room(RoomID) (*Room, error)
-	NextTrack(RoomID) (music.Track, error)
+	NextTrack(RoomID) (*User, music.Track, error)
+
 	Rooms() ([]*Room, error)
 
 	AddRoom(*Room) error
