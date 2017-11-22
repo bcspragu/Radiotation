@@ -38,7 +38,7 @@ export default {
         Artists: [{Name: ''}],
         Album: {
           Name: '',
-          Images: [{URL: 'http://via.placeholder.com/150x150'}]
+          Images: [{URL: 'https://via.placeholder.com/150x150'}]
         },
         NoTrack: true
       },
@@ -88,7 +88,7 @@ export default {
             Artists: [{Name: ''}],
             Album: {
               Name: '',
-              Images: [{URL: 'http://via.placeholder.com/150x150'}]
+              Images: [{URL: 'https://via.placeholder.com/150x150'}]
             },
             NoTrack: true
           }

@@ -26,7 +26,7 @@ export default {
       return names.join(', ')
     },
     image () {
-      var url = 'http://via.placeholder.com/150x150'
+      var url = 'https://via.placeholder.com/150x150'
       if (!this.Album) {
         return url
       }

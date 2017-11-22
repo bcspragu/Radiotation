@@ -19,20 +19,11 @@ export default {
   props: ['Artists', 'Name', 'ID', 'Album'],
   computed: {
     image () {
-      var url = 'http://via.placeholder.com/150x150'
+      var url = 'https://via.placeholder.com/150x150'
       if (this.Album.Images.length > 0) {
         url = this.Album.Images[0].URL
       }
       return url
-    },
-    backgroundImage () {
-      var url = 'http://via.placeholder.com/150x150'
-      if (this.Album.Images.length > 0) {
-        url = this.Album.Images[0].URL
-      }
-      return {
-        'background-image': 'url("' + url + '")'
-      }
     },
     artist () {
       var names = []
