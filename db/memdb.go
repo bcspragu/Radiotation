@@ -88,6 +88,10 @@ func (m *memDBImpl) Room(id RoomID) (*Room, error) {
 	return r, nil
 }
 
+func (m *memDBImpl) NextTrack(RoomID) (music.Track, error) {
+	return music.Track{}, ErrOperationNotImplemented
+}
+
 func (m *memDBImpl) Rooms() ([]*Room, error) {
 	m.RLock()
 	defer m.RUnlock()
@@ -206,8 +210,12 @@ func (m *memDBImpl) RemoveTrack(id QueueID, idx int) error {
 
 	for _, q := range qs {
 		if q.ID == id {
-			// TODO: Validate index is in bounds, and use deletion method that cleans
-			// up pointers.
+			if idx >= len(q.Tracks) {
+				return fmt.Errorf("asked to remove track index %d, only have %d tracks", idx, len(q.Tracks))
+			}
+			if idx < q.Offset {
+				return fmt.Errorf("asked to remove track index %d, we're passed that on index %d", idx, q.Offset)
+			}
 			q.Tracks = append(q.Tracks[:idx], q.Tracks[idx+1:]...)
 			return nil
 		}
@@ -216,19 +224,23 @@ func (m *memDBImpl) RemoveTrack(id QueueID, idx int) error {
 	return ErrQueueNotFound
 }
 
-func (m *memDBImpl) History(rid RoomID) ([]music.Track, error) {
+func (m *memDBImpl) History(rid RoomID) ([]*TrackEntry, error) {
 	m.RLock()
 	defer m.RUnlock()
-	ts := make([]music.Track, len(m.history[rid]))
-	for i, te := range m.history[rid] {
-		ts[i] = te.Track
+	tes, ok := m.history[rid]
+	if !ok {
+		return nil, ErrRoomNotFound
 	}
-	return ts, nil
+	return tes, nil
 }
 
 func (m *memDBImpl) AddToHistory(rid RoomID, trackEntry *TrackEntry) error {
 	m.Lock()
 	defer m.Unlock()
 	m.history[rid] = append(m.history[rid], trackEntry)
+	return nil
+}
+
+func (m *memDBImpl) Close() error {
 	return nil
 }

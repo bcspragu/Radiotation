@@ -171,7 +171,7 @@ func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request, u *db.User
 	}
 
 	// If there are less tracks than the index, it's invalid.
-	if len(queue.Tracks) <= idx {
+	if idx >= len(queue.Tracks) {
 		return fmt.Errorf("asked to remove track index %d, only have %d tracks", idx, len(queue.Tracks))
 	}
 
@@ -373,7 +373,7 @@ func (s *Srv) nowPlaying(rid db.RoomID) *music.Track {
 	}
 
 	if len(ts) > 0 {
-		return &ts[len(ts)-1]
+		return &ts[len(ts)-1].Track
 	}
 	return nil
 }
@@ -407,18 +407,20 @@ func (s *Srv) popTrack(rid db.RoomID) (*db.User, music.Track, error) {
 			continue
 		}
 
-		q, err := s.queueDB.Queue(db.QueueID{RoomID: rid, UserID: u.ID})
+		t, err := s.roomDB.NextTrack(rid)
+		if err == db.ErrNoTracksInQueue {
+			continue
+		}
+
 		if err != nil {
-			log.Printf("error retreiving queue for user %s in room %s: %v", u.ID, rid, err)
+			log.Printf("error retreiving next track for user %s in room %s: %v", u.ID, rid, err)
 			continue
 		}
 
-		if !q.HasTracks() {
-			continue
-		}
-
-		return u, q.NextTrack(), nil
+		return u, t, nil
 	}
+
+	// We'll only reach this point if there are no tracks in the room.
 	return nil, music.Track{}, errNoTracks
 }
 

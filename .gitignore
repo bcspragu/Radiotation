@@ -5,6 +5,7 @@ logins.json
 js/gopher.js*
 config
 radiotation
+radiotation-sql.db
 inmem.db
 inmemdb
 assets/dist/*

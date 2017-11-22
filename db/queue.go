@@ -1,10 +1,16 @@
 package db
 
-import "github.com/bcspragu/Radiotation/music"
+import (
+	"github.com/bcspragu/Radiotation/music"
+)
 
 type QueueID struct {
-	UserID UserID
 	RoomID RoomID
+	UserID UserID
+}
+
+func (id QueueID) String() string {
+	return string(id.RoomID) + id.UserID.String()
 }
 
 type Queue struct {
@@ -13,14 +19,13 @@ type Queue struct {
 	Tracks []music.Track
 }
 
-func (q *Queue) NextTrack() music.Track {
+func nextTrack(q *Queue) (music.Track, error) {
 	if q.Offset < len(q.Tracks) {
 		track := q.Tracks[q.Offset]
 		q.Offset++
-		return track
+		return track, nil
 	}
-	// TODO(bsprague): Probably add errors back
-	return music.Track{}
+	return music.Track{}, ErrNoTracksInQueue
 }
 
 func (q *Queue) RemoveTrack(delTrack music.Track) {

@@ -33,12 +33,12 @@ func main() {
 		log.Fatalf("Missing a required flag, all of  --client_id, --spotify_client_id, and --spotify_secret are required.")
 	}
 
-	idb, err := db.InitInMemDB()
+	sqlDB, err := db.InitSQLiteDB()
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
 
-	s, err := srv.New(idb, &srv.Config{
+	s, err := srv.New(sqlDB, &srv.Config{
 		Dev:      *dev,
 		ClientID: *clientID,
 		SongServers: map[db.MusicService]music.SongServer{
@@ -53,6 +53,7 @@ func main() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-c
+		sqlDB.Close()
 		os.Exit(1)
 	}()
 

@@ -188,15 +188,16 @@ func NewRoom(name string, ms MusicService) *Room {
 
 func Normalize(name string) RoomID {
 	if len(name) == 0 {
-		name = "blank"
+		return RoomID("blank")
 	}
 
-	if len(name) > 15 {
-		name = name[:15]
-	}
 	name = strings.ToLower(name)
 	name = strings.TrimSpace(name)
 	name = strings.Replace(name, " ", "-", -1)
 	name = strings.Replace(name, "_", "-", -1)
-	return RoomID(nameRE.ReplaceAllString(name, ""))
+	name = nameRE.ReplaceAllString(name, "")
+	if len(name) > 15 {
+		name = name[:15]
+	}
+	return RoomID(name)
 }

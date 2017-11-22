@@ -11,6 +11,7 @@ var (
 	ErrUserNotFound            = errors.New("radiotation: user not found")
 	ErrRoomNotFound            = errors.New("radiotation: room not found")
 	ErrQueueNotFound           = errors.New("radiotation: queue not found")
+	ErrNoTracksInQueue         = errors.New("radiotation: no tracks in queue")
 )
 
 type TrackEntry struct {
@@ -24,6 +25,7 @@ type TrackEntry struct {
 
 type RoomDB interface {
 	Room(RoomID) (*Room, error)
+	NextTrack(RoomID) (music.Track, error)
 	Rooms() ([]*Room, error)
 
 	AddRoom(*Room) error
@@ -45,7 +47,7 @@ type QueueDB interface {
 }
 
 type HistoryDB interface {
-	History(RoomID) ([]music.Track, error)
+	History(RoomID) ([]*TrackEntry, error)
 	AddToHistory(RoomID, *TrackEntry) error
 }
 
@@ -54,4 +56,5 @@ type DB interface {
 	UserDB
 	QueueDB
 	HistoryDB
+	Close() error
 }
