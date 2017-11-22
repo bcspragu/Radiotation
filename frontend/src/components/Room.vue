@@ -1,7 +1,14 @@
 <template>
   <div class="room-container">
     <div class="input-group">
-      <input v-on:keyup.enter="goToSearch" type="text" v-model="query" name="search" class="form-input input-lg" placeholder="Search for Music">
+      <input 
+        autocomplete="off"
+        v-on:keyup.enter="goToSearch"
+        type="text"
+        v-model="query"
+        name="search"
+        class="form-input input-lg"
+        placeholder="Search for Music">
       <button v-on:click="goToSearch" class="btn btn-lg input-group-btn"><i class="icon icon-search"></i></button>
     </div>
     <div class="divider">Your Queue</div>

@@ -6,6 +6,7 @@
       </div>
       <div class="col-9">
         <input 
+          autocomplete="off"
           v-on:keyup.enter="createRoom"
           type="text"
           v-model="roomName"
