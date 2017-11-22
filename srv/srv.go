@@ -307,11 +307,24 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 		return err
 	}
 
+	type trackWithPlayed struct {
+		music.Track
+		Played bool
+	}
+
+	tracksWithPlayed := []*trackWithPlayed{}
+	for i, t := range tracks {
+		tracksWithPlayed = append(tracksWithPlayed, &trackWithPlayed{
+			Track:  t,
+			Played: i < q.Offset,
+		})
+	}
+
 	jsonResp(w, struct {
 		Room  *db.Room
-		Queue []music.Track
+		Queue []*trackWithPlayed
 		Track *music.Track
-	}{rm, tracks, s.nowPlaying(rm.ID)})
+	}{rm, tracksWithPlayed, s.nowPlaying(rm.ID)})
 	return nil
 }
 

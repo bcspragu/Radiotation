@@ -7,10 +7,10 @@
     <div class="divider">Your Queue</div>
     <div class="queue">
       <div class="queue">
-        <div v-for="(track, index) in queue" class="container" :key="track.Artist+track.Title+track.Image">
+        <div v-for="(track, index) in queue" class="container" :class="{played: track.Played}" :key="track.Artist+track.Title+track.Image">
           <div class="columns col-gapless">
             <div class="column col-10"><track-item v-bind="track"/></div>
-            <div class="column col-2 song-op" v-on:click="removeSong(track, index)">
+            <div v-if="!track.Played" class="column col-2 song-op" v-on:click="removeSong(track, index)">
               <button class="btn btn-link"><i class="icon icon-cross"></i></button>
             </div>
           </div>
@@ -109,7 +109,7 @@ export default {
           console.log(evt)
         }
         conn.onmessage = (evt) => {
-          this.nowPlaying = JSON.parse(evt.data)
+          this.fetchRoom()
         }
       }
     }
@@ -137,6 +137,10 @@ export default {
   background-color: #555;
   color: white;
   text-align: center;
+}
+
+.played {
+  opacity: 0.2;
 }
 
 .song-op {
