@@ -25,24 +25,3 @@ func nextTrack(q *Queue) (music.Track, error) {
 	}
 	return music.Track{}, ErrNoTracksInQueue
 }
-
-func HasTracks(q *Queue) bool {
-	return len(q.Tracks) > q.Offset
-}
-
-func HasTrack(q *Queue, track music.Track) bool {
-	for _, t := range q.Tracks {
-		if t.ID == track.ID {
-			return true
-		}
-	}
-	return false
-}
-
-func CountTracks(queues []*Queue) int {
-	c := 0
-	for _, q := range queues {
-		c += len(q.Tracks)
-	}
-	return c
-}

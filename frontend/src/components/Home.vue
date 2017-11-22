@@ -86,14 +86,20 @@ export default {
       })
     },
     onSignIn (googleUser) {
-      if (this.redirect) {
-        this.$router.push({path: this.redirect})
-      }
       if (this.user) {
+        if (this.redirect) {
+          this.$router.push({path: this.redirect})
+        }
         return
       }
       var data = {token: googleUser.getAuthResponse().id_token}
-      this.$http.post('/verifyToken', data, {emulateJSON: true}).then(this.fetchUser)
+      this.$http.post('/verifyToken', data, {emulateJSON: true}).then(() => {
+        if (this.redirect) {
+          this.$router.push({path: this.redirect})
+          return
+        }
+        this.fetchUser()
+      })
     }
   }
 }

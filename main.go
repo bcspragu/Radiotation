@@ -20,6 +20,7 @@ var (
 	_             = flag.String(flag.DefaultConfigFlagname, "config", "Path to config file")
 	addr          = flag.String("addr", ":8000", "HTTP service address")
 	clientID      = flag.String("client_id", "", "The Google ClientID to use")
+	fcmKey        = flag.String("fcm_key", "", "The Firebase Cloud Messaging Key to use")
 	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
 	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
 	dev           = flag.Bool("dev", true, "If true, use development configuration")
@@ -41,6 +42,7 @@ func main() {
 	s, err := srv.New(sqlDB, &srv.Config{
 		Dev:      *dev,
 		ClientID: *clientID,
+		FCMKey:   *fcmKey,
 		SongServers: map[db.MusicService]music.SongServer{
 			db.Spotify: spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
 		},

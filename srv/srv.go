@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/NaySoftware/go-fcm"
 	"github.com/bcspragu/Radiotation/db"
 	"github.com/bcspragu/Radiotation/hub"
 	"github.com/bcspragu/Radiotation/music"
@@ -38,6 +39,7 @@ type Srv struct {
 	h    *hub.Hub
 	r    *mux.Router
 	tmpl *template.Template
+	fcm  *fcm.FcmClient
 	cfg  *Config
 
 	googleVerifier *oidc.IDTokenVerifier
@@ -52,6 +54,7 @@ type Config struct {
 	ClientID    string
 	SongServers map[db.MusicService]music.SongServer
 	Dev         bool
+	FCMKey      string
 }
 
 // New returns an initialized server
@@ -75,6 +78,7 @@ func New(sdb db.DB, cfg *Config) (http.Handler, error) {
 		sc:   sc,
 		h:    hub.New(),
 		tmpl: template.Must(template.ParseGlob(glob)),
+		fcm:  fcm.NewFcmClient(cfg.FCMKey),
 		cfg:  cfg,
 		googleVerifier: googleProvider.Verifier(&oidc.Config{
 			ClientID: cfg.ClientID,
@@ -105,6 +109,7 @@ func (s *Srv) initHandlers() {
 	// Get the next song. This should be a POST action, but its GET for
 	// debugging.
 	s.r.HandleFunc("/room/{id}/pop", s.serveSong).Methods("GET")
+	s.r.HandleFunc("/room/{id}/veto", s.withRoomAndUser(s.serveVeto)).Methods("POST")
 
 	// Create a room.
 	s.r.HandleFunc("/room", s.serveCreateRoom).Methods("POST")
@@ -307,6 +312,89 @@ func (s *Srv) serveRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, rooms)
+}
+
+func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
+	users, err := s.userDB.Users(rm.ID)
+	if err != nil {
+		return err
+	}
+
+	hist, err := s.historyDB.History(rm.ID)
+	if err != nil {
+		return err
+	}
+	if len(hist) == 0 {
+		return errors.New("no tracks in history")
+	}
+
+	songsSince, vetoed := lastVeto(hist, u.ID)
+	if vetoed && songsSince < 2*len(users) {
+		return fmt.Errorf("Can only veto once every %d songs, you vetoed %d songs ago", 2*len(users), songsSince)
+	}
+
+	if err := s.historyDB.MarkVetoed(rm.ID, u.ID); err != nil {
+		return err
+	}
+
+	nu, t, err := s.roomDB.NextTrack(rm.ID)
+	if err == errNoTracks {
+		return errors.New("No tracks left in queue")
+	} else if err != nil {
+		return err
+	}
+
+	err = s.historyDB.AddToHistory(rm.ID, &db.TrackEntry{
+		Track:  t,
+		UserID: nu.ID,
+	})
+	if err != nil {
+		log.Printf("failed to add track %v from user %s to history for room %s: %v", t, u.ID, rm.ID, err)
+	}
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(t); err != nil {
+		return err
+	}
+	s.h.BroadcastRoom(buf.Bytes(), rm)
+
+	vetoee, err := s.userDB.User(hist[len(hist)-1].UserID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.pushVeto(rm, u, vetoee); err != nil {
+		return err
+	}
+
+	jsonResp(w, struct{}{})
+	return nil
+}
+
+func (s *Srv) pushVeto(rm *db.Room, vetoer, vetoee *db.User) error {
+	s.fcm.NewFcmMsgTo(string(rm.ID), struct {
+		Vetoer *db.User
+		Vetoee *db.User
+	}{vetoer, vetoee})
+
+	status, err := s.fcm.Send()
+	if err != nil {
+		return fmt.Errorf("error sending FCM: %v", err)
+	}
+
+	log.Printf("Veto status: %+v", status)
+	return nil
+}
+
+func lastVeto(history []*db.TrackEntry, uid db.UserID) (songsSince int, veto bool) {
+	for i := len(history) - 1; i >= 0; i-- {
+		if history[i].Vetoed && history[i].VetoedBy == uid {
+			veto = true
+			return
+		}
+		songsSince++
+	}
+	return
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {

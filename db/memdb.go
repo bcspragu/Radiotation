@@ -92,6 +92,10 @@ func (m *memDBImpl) NextTrack(RoomID) (*User, music.Track, error) {
 	return nil, music.Track{}, ErrOperationNotImplemented
 }
 
+func (m *memDBImpl) MarkVetoed(RoomID, UserID) error {
+	return ErrOperationNotImplemented
+}
+
 func (m *memDBImpl) Rooms() ([]*Room, error) {
 	m.RLock()
 	defer m.RUnlock()

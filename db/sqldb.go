@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -690,6 +691,45 @@ func (s *sqlDB) AddToHistory(rid RoomID, te *TrackEntry) error {
 		defer tx.Rollback()
 		ts, err := loadTrackEntries(tx.QueryRow(getHistoryStmt, string(rid)))
 		ts = append(ts, te)
+		teBytes, err := trackEntryBytes(ts)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if _, err := tx.Exec(updateHistoryStmt, teBytes, string(rid)); err != nil {
+			errChan <- err
+			return
+		}
+		errChan <- tx.Commit()
+	}
+	return <-errChan
+}
+
+func (s *sqlDB) MarkVetoed(rid RoomID, uid UserID) error {
+	errChan := make(chan error)
+	s.dbChan <- func(db *sql.DB) {
+		tx, err := db.Begin()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		defer tx.Rollback()
+		ts, err := loadTrackEntries(tx.QueryRow(getHistoryStmt, string(rid)))
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		if len(ts) == 0 {
+			errChan <- errors.New("no tracks in history")
+			return
+		}
+
+		te := ts[len(ts)-1]
+		te.Vetoed = true
+		te.VetoedBy = uid
+		ts[len(ts)-1] = te
+
 		teBytes, err := trackEntryBytes(ts)
 		if err != nil {
 			errChan <- err

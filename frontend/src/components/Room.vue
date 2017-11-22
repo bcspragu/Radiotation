@@ -24,7 +24,7 @@
     </div>
     <div class="divider">Now Playing</div>
     <div class="now-playing">
-      <now-playing v-bind="nowPlaying"/>
+      <now-playing :room-id="id" :track="nowPlaying"/>
     </div>
   </div>
 </template>
