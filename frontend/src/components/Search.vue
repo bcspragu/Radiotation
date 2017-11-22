@@ -53,20 +53,8 @@ export default {
       }
       this.addSong(track, index)
     },
-    removeSong (track, index) {
-      var url = '/room/' + this.roomID + '/remove'
-      var data = {index: track.Index, id: track.ID}
-      this.$http.post(url, data, {emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
-        if (data.Error) {
-          this.$emit('ajaxErr', data)
-          return
-        }
-        this.results[index].InQueue = false
-      })
-    },
     addSong (track, index) {
-      var url = '/room/' + this.roomID + '/add'
+      var url = `/room/${this.roomID}/add`
       var data = {id: track.ID}
       this.$http.post(url, data, {emulateJSON: true}).then(response => {
         var data = JSON.parse(response.body)
@@ -84,7 +72,7 @@ export default {
       if (!this.query) {
         return
       }
-      var url = '/room/' + this.roomID + '/search'
+      var url = `/room/${this.roomID}/search`
       var data = {query: this.query}
       this.$http.get(url, {params: data, emulateJSON: true}).then(response => {
         var data = JSON.parse(response.body)

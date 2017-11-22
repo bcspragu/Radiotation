@@ -6,18 +6,16 @@
     </div>
     <div class="divider">Your Queue</div>
     <div class="queue">
-      <div class="queue">
-        <div v-for="(track, index) in queue" class="container" :class="{played: track.Played}" :key="track.Artist+track.Title+track.Image">
-          <div class="columns col-gapless">
-            <div class="column col-10"><track-item v-bind="track"/></div>
-            <div v-if="!track.Played" class="column col-2 song-op" v-on:click="removeSong(track, index)">
-              <button class="btn btn-link"><i class="icon icon-cross"></i></button>
-            </div>
+      <div v-for="(track, index) in queue" class="container" :class="{played: track.Played, 'not-played': !track.Played}" :key="track.Artist+track.Title+track.Image">
+        <div class="columns col-gapless">
+          <div class="column col-10"><track-item v-bind="track"/></div>
+          <div v-if="!track.Played" class="column col-2 song-op" v-on:click="removeSong(track, index)">
+            <button class="btn btn-link"><i class="icon icon-cross"></i></button>
           </div>
         </div>
       </div>
     </div>
-      <div class="divider">Now Playing</div>
+    <div class="divider">Now Playing</div>
     <div class="now-playing">
       <now-playing v-bind="nowPlaying"/>
     </div>
@@ -54,10 +52,16 @@ export default {
     'track-item': Track
   },
   created () {
-    this.fetchRoom()
+    this.fetchRoom(true)
     this.connectWebSocket()
   },
   methods: {
+    scrollToNext () {
+      var queue = this.$el.querySelector('.queue')
+      var next = this.$el.querySelector('.not-played')
+      var rect = next.getBoundingClientRect()
+      queue.scrollTop = rect.top
+    },
     removeSong (track, index) {
       var url = `/room/${this.id}/remove`
       var data = {index: index, id: track.ID}
@@ -70,7 +74,7 @@ export default {
         this.queue.splice(index, 1)
       })
     },
-    fetchRoom () {
+    fetchRoom (scroll) {
       this.$http.get(`/room/${this.id}`).then(response => {
         var data = JSON.parse(response.body)
         if (data.RoomNotFound) {
@@ -97,6 +101,11 @@ export default {
         } else {
           this.nowPlaying = data.Track
         }
+        if (scroll) {
+          this.$nextTick(() => {
+            this.scrollToNext()
+          })
+        }
       })
     },
     goToSearch () {
@@ -109,7 +118,7 @@ export default {
           console.log(evt)
         }
         conn.onmessage = (evt) => {
-          this.fetchRoom()
+          this.fetchRoom(false)
         }
       }
     }

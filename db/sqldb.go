@@ -79,6 +79,8 @@ type sqlDB struct {
 	closeFn  func() error
 }
 
+// InitSQLiteDB creates a new *sqlDB that is stored on disk as
+// 'radiotation-sql.db'.
 func InitSQLiteDB() (DB, error) {
 	db, err := sql.Open("sqlite3", "radiotation-sql.db")
 	if err != nil {
@@ -101,6 +103,8 @@ func InitSQLiteDB() (DB, error) {
 	return sdb, nil
 }
 
+// run handles all database calls, and ensures that only one thing is happening
+// against the database at a time.
 func (s *sqlDB) run(db *sql.DB) {
 	for {
 		select {
@@ -293,10 +297,8 @@ func (s *sqlDB) NextTrack(rid RoomID) (*User, music.Track, error) {
 			return
 		}
 
-		log.Printf("Looking for a track from %d users", len(users))
 		for i := 0; i < len(users); i++ {
 			idx, last := rot.NextIndex()
-			log.Printf("Got index %d, last %t", idx, last)
 			if last {
 				// Start a rotation with any new users
 				rot.Start(len(users))
@@ -313,7 +315,6 @@ func (s *sqlDB) NextTrack(rid RoomID) (*User, music.Track, error) {
 				continue
 			}
 
-			log.Printf("Loading queue for (%s, %s)", string(rid), u.ID.String())
 			q, err := loadQueue(tx.QueryRow(getQueueStmt, string(rid), u.ID.String()))
 			if err != nil {
 				tChan <- &result{err: err}
