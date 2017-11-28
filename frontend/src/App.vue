@@ -2,7 +2,7 @@
   <div id="app">
     <header class="navbar">
       <section class="navbar-section navbar-main">
-        <img class="logo" src="static/radiotation_logo.png">
+        <router-link :to="{ name: 'Home' }"><img class="logo" src="static/radiotation_logo.png"></router-link>
         <div class="btn-header btn btn-link">{{title}}</div>
       </section>
       <section class="navbar-section"></section>

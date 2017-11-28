@@ -1,7 +1,5 @@
 package music
 
-import "strings"
-
 type SongServer interface {
 	Search(query string) ([]Track, error)
 	Track(id string) (Track, error)
@@ -31,19 +29,4 @@ type Image struct {
 	Width  int
 	Height int
 	URL    string
-}
-
-func (a *Album) Image() string {
-	if len(a.Images) > 0 {
-		return a.Images[0].URL
-	}
-	return ""
-}
-
-func (t *Track) ArtistList() string {
-	names := make([]string, len(t.Artists))
-	for i, a := range t.Artists {
-		names[i] = a.Name
-	}
-	return strings.Join(names, ", ")
 }

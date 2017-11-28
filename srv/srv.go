@@ -30,7 +30,6 @@ var (
 			return true
 		},
 	}
-	errNoTracks    = errors.New("radiotation: no tracks in room")
 	errNotLoggedIn = errors.New("radiotation: user not found")
 )
 
@@ -215,7 +214,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u, t, err := s.roomDB.NextTrack(rm.ID)
-	if err == errNoTracks {
+	if err == db.ErrNoTracksInQueue {
 		jsonErr(w, errors.New("No tracks to choose from"))
 		return
 	} else if err != nil {
@@ -338,7 +337,7 @@ func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 	}
 
 	nu, t, err := s.roomDB.NextTrack(rm.ID)
-	if err == errNoTracks {
+	if err == db.ErrNoTracksInQueue {
 		return errors.New("No tracks left in queue")
 	} else if err != nil {
 		return err
