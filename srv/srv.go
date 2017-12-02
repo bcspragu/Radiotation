@@ -57,7 +57,7 @@ type Config struct {
 }
 
 // New returns an initialized server
-func New(sdb db.DB, cfg *Config) (http.Handler, error) {
+func New(sdb db.DB, cfg *Config) (*Srv, error) {
 	sc, err := loadKeys()
 	if err != nil {
 		return nil, err

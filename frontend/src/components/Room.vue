@@ -30,9 +30,9 @@
 </template>
 
 <script>
-import NowPlaying from './NowPlaying.vue'
-import Search from './Search.vue'
-import Track from './Track.vue'
+import NowPlaying from '@/components/NowPlaying.vue'
+import Search from '@/components/Search.vue'
+import Track from '@/components/Track.vue'
 
 export default {
   name: 'Room',
@@ -105,6 +105,9 @@ export default {
       })
     },
     goToSearch () {
+      if (!this.query) {
+        return
+      }
       this.$router.push({name: 'Search', params: {roomID: this.id}, query: {query: this.query}})
     },
     connectWebSocket () {

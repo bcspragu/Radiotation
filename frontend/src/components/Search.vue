@@ -1,5 +1,16 @@
 <template>
   <div class="results">
+    <div class="input-group">
+      <input 
+        autocomplete="off"
+        v-on:keyup.enter="search"
+        type="text"
+        v-model="query"
+        name="search"
+        class="form-input input-lg"
+        placeholder="Search for Music">
+      <button v-on:click="search" class="btn btn-lg input-group-btn"><i class="icon icon-search"></i></button>
+    </div>
     <button v-on:click="goBack" class="btn btn-link btn-back btn-lg"><i class="icon icon-arrow-left back-icon"></i>Back to Queue</button>
     <div>
       <div v-show="noResults" class="no-results text-center">{{noResultsMsg}}</div>
@@ -16,7 +27,7 @@
 </template>
 
 <script>
-import Track from './Track.vue'
+import Track from '@/components/Track.vue'
 
 export default {
   name: 'Room',
@@ -32,7 +43,7 @@ export default {
     'track-item': Track
   },
   created () {
-    this.$emit('updateTitle', 'Results for ' + this.query)
+    this.$emit('updateTitle', 'Loading results...')
     this.search()
   },
   computed: {
@@ -85,6 +96,7 @@ export default {
           return
         }
         this.results = data
+        this.$emit('updateTitle', 'Results for ' + this.query)
         if (this.noResults) {
           this.noResultsMsg = 'No results found'
         }

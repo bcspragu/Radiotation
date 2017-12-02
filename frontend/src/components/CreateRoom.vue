@@ -7,7 +7,7 @@
 </template>
 
 <script>
-import RoomForm from './RoomForm.vue'
+import RoomForm from '@/components/RoomForm.vue'
 
 export default {
   name: 'CreateRoom',
