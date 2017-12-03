@@ -27,10 +27,8 @@
         <room-form></room-form>
       </div>
     </div>
-    <div v-else class="columns signin-holder">
-      <div>
-        <div id="g-signin"></div>
-      </div>
+    <div v-else class="text-center">
+      <div id="g-signin"></div>
     </div>
   </div>
 </template>
@@ -66,7 +64,6 @@ export default {
             'scope': 'profile email',
             'width': 240,
             'height': 50,
-            'theme': 'dark',
             'onsuccess': vue.onSignIn,
             'onfailure': vue.onFailure
           })
@@ -112,5 +109,9 @@ export default {
 
 .available-room {
   font-size: 24px;
+}
+
+#g-signin {
+  display: inline-block
 }
 </style>
