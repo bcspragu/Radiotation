@@ -12,8 +12,7 @@
           v-model="roomName"
           name="room"
           class="form-input"
-          placeholder="Room Name"
-          value="">
+          placeholder="Room Name">
       </div>
     </div>
     <div class="form-group">
