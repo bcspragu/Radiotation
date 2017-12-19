@@ -4,8 +4,8 @@ import Vue from 'vue'
 import VueResource from 'vue-resource'
 import App from './App'
 import router from './router'
-import '../node_modules/spectre.css/dist/spectre.min.css'
-import '../node_modules/spectre.css/dist/spectre-icons.min.css'
+import 'spectre.css/dist/spectre.min.css'
+import 'spectre.css/dist/spectre-icons.min.css'
 
 Vue.use(VueResource)
 Vue.config.productionTip = false
