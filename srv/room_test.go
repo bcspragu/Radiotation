@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/radio"
 )
 
 func TestPopTrack_RoundRobinRotator(t *testing.T) {
@@ -23,7 +23,7 @@ func TestPopTrack_RoundRobinRotator(t *testing.T) {
 		q := u.Queue("room")
 		// Add i+1 songs to this user's queue for this room
 		for j := 0; j < i+1; j++ {
-			q.AddTrack(music.Track{ID: strconv.Itoa(j)})
+			q.AddTrack(radio.Track{ID: strconv.Itoa(j)})
 		}
 
 		r.AddUser(u)
@@ -88,7 +88,7 @@ func TestPopTrack_ShuffleRotator(t *testing.T) {
 		q := u.Queue("room")
 		// Add 1,000 songs to each user's queue for this room
 		for j := 0; j < 1000; j++ {
-			q.AddTrack(music.Track{ID: strconv.Itoa(j)})
+			q.AddTrack(radio.Track{ID: strconv.Itoa(j)})
 		}
 
 		r.AddUser(u)

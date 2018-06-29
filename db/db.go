@@ -3,7 +3,7 @@ package db
 import (
 	"errors"
 
-	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/radio"
 )
 
 var (
@@ -14,9 +14,14 @@ var (
 	ErrNoTracksInQueue         = errors.New("radiotation: no tracks in queue")
 )
 
+type QueueID struct {
+	RoomID RoomID
+	UserID UserID
+}
+
 type TrackEntry struct {
 	UserID UserID
-	Track  music.Track
+	Track  radio.Track
 
 	// VetoedBy is only set if Vetoed is true.
 	Vetoed   bool
@@ -25,7 +30,7 @@ type TrackEntry struct {
 
 type RoomDB interface {
 	Room(RoomID) (*Room, error)
-	NextTrack(RoomID) (*User, music.Track, error)
+	NextUser(RoomID) (*User, error)
 
 	Rooms() ([]*Room, error)
 
@@ -40,10 +45,10 @@ type UserDB interface {
 	AddUser(user *User) error
 }
 
-type QueueDB interface {
-	Queue(QueueID) (*Queue, error)
-
-	AddTrack(QueueID, music.Track) error
+type TrackDB interface {
+	Tracks(QueueID) (radio.TrackList, error)
+	NextTrack(QueueID) (radio.Track, error)
+	AddTrack(QueueID, radio.Track, int) error
 	RemoveTrack(QueueID, int) error
 }
 
@@ -56,7 +61,7 @@ type HistoryDB interface {
 type DB interface {
 	RoomDB
 	UserDB
-	QueueDB
+	TrackDB
 	HistoryDB
 	Close() error
 }

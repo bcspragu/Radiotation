@@ -70,7 +70,7 @@ func (r RotatorType) String() string {
 	return "Unknown"
 }
 
-func newRotator(r RotatorType) Rotator {
+func NewRotator(r RotatorType) Rotator {
 	switch r {
 	case RoundRobin:
 		return &roundRobinRotator{}

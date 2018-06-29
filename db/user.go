@@ -50,7 +50,7 @@ func (id UserID) String() string {
 	return id.AccountType.String() + ":" + id.ID
 }
 
-func userIDFromString(uid string) (UserID, error) {
+func UserIDFromString(uid string) (UserID, error) {
 	idp := strings.SplitN(uid, ":", 2)
 	if len(idp) != 2 {
 		return UserID{}, fmt.Errorf("malformed uid %q", uid)

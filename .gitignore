@@ -7,6 +7,9 @@ config
 radiotation
 Radiotation
 radiotation-sql.db
+radiotation.db
 inmem.db
 inmemdb
 assets/dist/*
+cmd/goose/goose
+cmd/server/server

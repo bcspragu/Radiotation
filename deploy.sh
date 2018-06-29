@@ -11,17 +11,17 @@ docker build -t npm-env $DIR/frontend
 docker run --mount type=bind,source=$DIR/frontend,destination=/project --rm npm-env /bin/sh -c "npm run build"
 
 echo "Cleaning old assets..."
-ssh prod "rm -rf ~/rkt/Radiotation/frontend/dist/*"
+ssh oldprod "rm -rf ~/rkt/Radiotation/frontend/dist/*"
 
 echo "Uploading new assets..."
-scp -r frontend/dist/* prod:~/rkt/Radiotation/frontend/dist/
+scp -r frontend/dist/* oldprod:~/rkt/Radiotation/frontend/dist/
 
 echo "Uploading new binary..."
-scp radiotation prod:~/rkt/Radiotation
+scp radiotation oldprod:~/rkt/Radiotation
 
 read -p 'Password: ' -s password
 
-ssh prod << EOF
+ssh oldprod << EOF
   cd ~/rkt/Radiotation/
 
   echo "Building new image..."

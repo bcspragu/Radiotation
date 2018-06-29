@@ -1,4 +1,4 @@
-package music
+package radio
 
 type SongServer interface {
 	Search(query string) ([]Track, error)
@@ -29,4 +29,9 @@ type Image struct {
 	Width  int
 	Height int
 	URL    string
+}
+
+type TrackList struct {
+	Tracks    []Track
+	NextIndex int
 }

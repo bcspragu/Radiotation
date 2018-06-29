@@ -8,7 +8,7 @@ import (
 	"log"
 
 	"github.com/bcspragu/Radiotation/db"
-	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/radio"
 )
 
 const (
@@ -26,17 +26,17 @@ func printTracks() {
 		log.Fatal(err)
 	}
 	for _, t := range tracks {
-		t.Album = music.Album{}
+		t.Album = radio.Album{}
 		fmt.Printf("%+v\n", t)
 	}
 }
 
-func decodeTracks(h string) ([]music.Track, error) {
+func decodeTracks(h string) ([]radio.Track, error) {
 	decoded, err := hex.DecodeString(h)
 	if err != nil {
 		return nil, err
 	}
-	var tracks []music.Track
+	var tracks []radio.Track
 	if err := gob.NewDecoder(bytes.NewReader(decoded)).Decode(&tracks); err != nil {
 		return nil, err
 	}

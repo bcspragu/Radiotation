@@ -15,7 +15,7 @@ import (
 	"github.com/NaySoftware/go-fcm"
 	"github.com/bcspragu/Radiotation/db"
 	"github.com/bcspragu/Radiotation/hub"
-	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/radio"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
@@ -45,13 +45,13 @@ type Srv struct {
 
 	roomDB    db.RoomDB
 	userDB    db.UserDB
-	queueDB   db.QueueDB
+	trackDB   db.TrackDB
 	historyDB db.HistoryDB
 }
 
 type Config struct {
 	ClientID    string
-	SongServers map[db.MusicService]music.SongServer
+	SongServers map[db.MusicService]radio.SongServer
 	Dev         bool
 	FCMKey      string
 }
@@ -84,7 +84,7 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 		}),
 		roomDB:    sdb,
 		userDB:    sdb,
-		queueDB:   sdb,
+		trackDB:   sdb,
 		historyDB: sdb,
 	}
 
@@ -166,7 +166,7 @@ func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm 
 		return err
 	}
 
-	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
+	if err := s.trackDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
 		log.Println(err)
 	}
 
@@ -180,22 +180,7 @@ func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request, u *db.User
 		return err
 	}
 
-	queue, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
-	if err != nil {
-		return err
-	}
-
-	// If there are less tracks than the index, it's invalid.
-	if idx >= len(queue.Tracks) {
-		return fmt.Errorf("asked to remove track index %d, only have %d tracks", idx, len(queue.Tracks))
-	}
-
-	// If we're already passed the index, it's invalid.
-	if idx < queue.Offset {
-		return fmt.Errorf("asked to remove track index %d, we're passed that on index %d", idx, queue.Offset)
-	}
-
-	if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, idx); err != nil {
+	if err := s.trackDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, idx); err != nil {
 		log.Println(err)
 	}
 
@@ -241,7 +226,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	type trackResponse struct {
 		Error   bool
 		Message string
-		Track   music.Track
+		Track   radio.Track
 	}
 
 	err = json.NewEncoder(w).Encode(trackResponse{
@@ -397,9 +382,9 @@ func lastVeto(history []*db.TrackEntry, uid db.UserID) (songsSince int, veto boo
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	tracks := []music.Track{}
+	tracks := []radio.Track{}
 
-	q, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
+	q, err := s.trackDB.NextTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID})
 	if err == nil {
 		tracks = q.Tracks
 	}
@@ -415,7 +400,7 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 	}
 
 	type trackWithPlayed struct {
-		music.Track
+		radio.Track
 		Played bool
 	}
 
@@ -430,7 +415,7 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 	jsonResp(w, struct {
 		Room  *db.Room
 		Queue []*trackWithPlayed
-		Track *music.Track
+		Track *radio.Track
 	}{rm, tracksWithPlayed, s.nowPlaying(rm.ID)})
 	return nil
 }
@@ -452,7 +437,7 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm
 	}
 
 	type trackInQueue struct {
-		music.Track
+		radio.Track
 		InQueue bool
 		Index   int
 	}
@@ -489,7 +474,7 @@ func (s *Srv) serveData(w http.ResponseWriter, r *http.Request) {
 	s.h.Register(ws, rm)
 }
 
-func (s *Srv) nowPlaying(rid db.RoomID) *music.Track {
+func (s *Srv) nowPlaying(rid db.RoomID) *radio.Track {
 	ts, err := s.historyDB.History(rid)
 	if err != nil {
 		log.Printf("Couldn't load history of tracks for room %s: %v", rid, err)
@@ -578,17 +563,17 @@ func loadOrGenKey(name string) ([]byte, error) {
 	return dat, nil
 }
 
-func (s *Srv) search(rm *db.Room, query string) ([]music.Track, error) {
+func (s *Srv) search(rm *db.Room, query string) ([]radio.Track, error) {
 	ss := s.songServer(rm)
 	return ss.Search(query)
 }
 
-func (s *Srv) track(rm *db.Room, id string) (music.Track, error) {
+func (s *Srv) track(rm *db.Room, id string) (radio.Track, error) {
 	ss := s.songServer(rm)
 	return ss.Track(id)
 }
 
-func (s *Srv) songServer(rm *db.Room) music.SongServer {
+func (s *Srv) songServer(rm *db.Room) radio.SongServer {
 	ss, ok := s.cfg.SongServers[rm.MusicService]
 	if !ok {
 		log.Printf("Couldn't find song server for room %+v", rm)

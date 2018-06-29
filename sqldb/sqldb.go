@@ -1,4 +1,4 @@
-package db
+package sqldb
 
 import (
 	"bytes"
@@ -9,43 +9,13 @@ import (
 	"log"
 	"strings"
 
-	"github.com/bcspragu/Radiotation/music"
+	"github.com/bcspragu/Radiotation/db"
+	"github.com/bcspragu/Radiotation/radio"
 	// Import SQLite driver
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
-	createUsersTableStmt = `CREATE TABLE IF NOT EXISTS Users (
-  id TEXT PRIMARY KEY,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL
-)`
-
-	createRoomsTableStmt = `CREATE TABLE IF NOT EXISTS Rooms (
-  id TEXT PRIMARY KEY,
-  display_name TEXT NOT NULL,
-  rotator BLOB NOT NULL,
-	rotator_type INTEGER NOT NULL,
-	music_service INTEGER NOT NULL
-)`
-
-	createQueuesTableStmt = `CREATE TABLE IF NOT EXISTS Queues (
-	room_id TEXT NOT NULL,
-	user_id TEXT NOT NULL,
-	offset INTEGER DEFAULT 0,
-	tracks BLOB NOT NULL,
-	joined_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	FOREIGN KEY (room_id) REFERENCES Rooms(id),
-	FOREIGN KEY (user_id) REFERENCES Users(id),
-	PRIMARY KEY (room_id, user_id)
-)`
-
-	createHistoryTableStmt = `CREATE TABLE IF NOT EXISTS History (
-	room_id TEXT PRIMARY KEY,
-	track_entries BLOB NOT NULL,
-	FOREIGN KEY (room_id) REFERENCES Rooms(id)
-)`
-
 	getRoomStmt  = `SELECT id, display_name, rotator_type, music_service FROM Rooms WHERE id = ?`
 	getRoomsStmt = `SELECT id, display_name, rotator_type, music_service FROM Rooms`
 	addRoomStmt  = `INSERT INTO Rooms (id, display_name, rotator, rotator_type, music_service) VALUES (?, ?, ?, ?, ?)`
@@ -70,30 +40,38 @@ var (
 	updateHistoryStmt = `UPDATE History SET track_entries = ? WHERE room_id = ?`
 )
 
-// sqlDB implements the Radiotation database API, backed by a SQLite database.
+type Queue struct {
+	ID     db.QueueID
+	Offset int
+	Tracks []radio.Track
+}
+
+func nextTrack(q *Queue) (radio.Track, error) {
+	if q.Offset < len(q.Tracks) {
+		return q.Tracks[q.Offset], nil
+	}
+	return radio.Track{}, db.ErrNoTracksInQueue
+}
+
+// DB implements the Radiotation database API, backed by a SQLite database.
 // NOTE: Since the database doesn't support concurrent writers, we don't
 // actually hold the *sql.DB in this struct, we force all callers to get a
 // handle via channels.
-type sqlDB struct {
-	dbChan   chan func(db *sql.DB)
+type DB struct {
+	dbChan   chan func(*sql.DB)
 	doneChan chan struct{}
 	closeFn  func() error
 }
 
-// InitSQLiteDB creates a new *sqlDB that is stored on disk as
+// InitSQLiteDB creates a new *DB that is stored on disk as
 // 'radiotation-sql.db'.
-func InitSQLiteDB() (DB, error) {
-	db, err := sql.Open("sqlite3", "radiotation-sql.db")
+func New() (*DB, error) {
+	db, err := sql.Open("sqlite3", "radiotation.db")
 	if err != nil {
 		return nil, err
 	}
 
-	for _, stmt := range []string{createUsersTableStmt, createRoomsTableStmt, createQueuesTableStmt, createHistoryTableStmt} {
-		if _, err := db.Exec(stmt); err != nil {
-			return nil, err
-		}
-	}
-	sdb := &sqlDB{
+	sdb := &DB{
 		dbChan:   make(chan func(*sql.DB)),
 		doneChan: make(chan struct{}),
 		closeFn: func() error {
@@ -106,13 +84,13 @@ func InitSQLiteDB() (DB, error) {
 
 // run handles all database calls, and ensures that only one thing is happening
 // against the database at a time.
-func (s *sqlDB) run(db *sql.DB) {
+func (s *DB) run(sdb *sql.DB) {
 	for {
 		select {
 		case dbFn := <-s.dbChan:
-			dbFn(db)
+			dbFn(sdb)
 		case <-s.doneChan:
-			db.Close()
+			sdb.Close()
 			return
 		}
 	}
@@ -122,13 +100,13 @@ type scanner interface {
 	Scan(dest ...interface{}) error
 }
 
-func loadTrackEntries(s scanner) ([]*TrackEntry, error) {
+func loadTrackEntries(s scanner) ([]*db.TrackEntry, error) {
 	var tBytes []byte
 	if err := s.Scan(&tBytes); err != nil {
 		return nil, err
 	}
 
-	var tracks []*TrackEntry
+	var tracks []*db.TrackEntry
 	if err := gob.NewDecoder(bytes.NewReader(tBytes)).Decode(&tracks); err != nil {
 		return nil, fmt.Errorf("failed to decode tracks: %v", err)
 	}
@@ -147,19 +125,19 @@ func loadQueue(s scanner) (*Queue, error) {
 		return nil, err
 	}
 
-	uid, err := userIDFromString(qr.userID)
+	uid, err := db.UserIDFromString(qr.userID)
 	if err != nil {
 		return nil, err
 	}
 
-	var tracks []music.Track
+	var tracks []radio.Track
 	if err := gob.NewDecoder(bytes.NewReader(qr.tBytes)).Decode(&tracks); err != nil {
 		return nil, fmt.Errorf("failed to decode tracks: %v", err)
 	}
 
 	return &Queue{
-		ID: QueueID{
-			RoomID: RoomID(qr.roomID),
+		ID: db.QueueID{
+			RoomID: db.RoomID(qr.roomID),
 			UserID: uid,
 		},
 		Offset: qr.offset,
@@ -167,7 +145,7 @@ func loadQueue(s scanner) (*Queue, error) {
 	}, nil
 }
 
-func loadUsers(tx *sql.Tx, rid RoomID) ([]*User, error) {
+func loadUsers(tx *sql.Tx, rid db.RoomID) ([]*db.User, error) {
 	rows, err := tx.Query(getUsersInRoomStmt, string(rid))
 	if err != nil {
 		return nil, err
@@ -186,7 +164,7 @@ func loadUsers(tx *sql.Tx, rid RoomID) ([]*User, error) {
 		return nil, err
 	}
 
-	var users []*User
+	var users []*db.User
 	for rows.Next() {
 		u, err := loadUser(rows)
 		if err != nil {
@@ -198,7 +176,7 @@ func loadUsers(tx *sql.Tx, rid RoomID) ([]*User, error) {
 	return users, nil
 }
 
-func loadUser(s scanner) (*User, error) {
+func loadUser(s scanner) (*db.User, error) {
 	var ur struct {
 		id        string
 		firstName string
@@ -207,32 +185,32 @@ func loadUser(s scanner) (*User, error) {
 	if err := s.Scan(&ur.id, &ur.firstName, &ur.lastName); err != nil {
 		return nil, err
 	}
-	uid, err := userIDFromString(ur.id)
+	uid, err := db.UserIDFromString(ur.id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &User{
+	return &db.User{
 		ID:    uid,
 		First: ur.firstName,
 		Last:  ur.lastName,
 	}, nil
 }
 
-func loadRotator(s scanner) (Rotator, error) {
+func loadRotator(s scanner) (db.Rotator, error) {
 	var rBytes []byte
 	if err := s.Scan(&rBytes); err != nil {
 		return nil, err
 	}
 
-	var rot Rotator
+	var rot db.Rotator
 	if err := gob.NewDecoder(bytes.NewReader(rBytes)).Decode(&rot); err != nil {
 		return nil, fmt.Errorf("failed to decode rotator: %v", err)
 	}
 	return rot, nil
 }
 
-func loadRoom(s scanner) (*Room, error) {
+func loadRoom(s scanner) (*db.Room, error) {
 	var rr struct {
 		id           string
 		displayName  string
@@ -243,27 +221,27 @@ func loadRoom(s scanner) (*Room, error) {
 		return nil, err
 	}
 
-	return &Room{
-		ID:           RoomID(rr.id),
+	return &db.Room{
+		ID:           db.RoomID(rr.id),
 		DisplayName:  rr.displayName,
-		RotatorType:  RotatorType(rr.rotatorType),
-		MusicService: MusicService(rr.musicService),
+		RotatorType:  db.RotatorType(rr.rotatorType),
+		MusicService: db.MusicService(rr.musicService),
 	}, nil
 }
 
-func (s *sqlDB) Room(rid RoomID) (*Room, error) {
+func (s *DB) Room(rid db.RoomID) (*db.Room, error) {
 	type result struct {
-		room *Room
+		room *db.Room
 		err  error
 	}
 	rmChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		r, err := loadRoom(db.QueryRow(getRoomStmt, string(rid)))
+	s.dbChan <- func(sdb *sql.DB) {
+		r, err := loadRoom(sdb.QueryRow(getRoomStmt, string(rid)))
 		rmChan <- &result{room: r, err: err}
 	}
 	res := <-rmChan
 	if res.err == sql.ErrNoRows {
-		return nil, ErrRoomNotFound
+		return nil, db.ErrRoomNotFound
 	}
 	if res.err != nil {
 		return nil, fmt.Errorf("failed to load room: %v", res.err)
@@ -271,15 +249,15 @@ func (s *sqlDB) Room(rid RoomID) (*Room, error) {
 	return res.room, nil
 }
 
-func (s *sqlDB) NextTrack(rid RoomID) (*User, music.Track, error) {
+func (s *DB) NextTrack(rid db.RoomID) (*db.User, radio.Track, error) {
 	type result struct {
-		user  *User
-		track music.Track
+		user  *db.User
+		track radio.Track
 		err   error
 	}
 	tChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			tChan <- &result{err: err}
 			return
@@ -323,7 +301,7 @@ func (s *sqlDB) NextTrack(rid RoomID) (*User, music.Track, error) {
 			}
 
 			t, err := nextTrack(q)
-			if err == ErrNoTracksInQueue {
+			if err == db.ErrNoTracksInQueue {
 				continue
 			}
 			if err != nil {
@@ -355,23 +333,23 @@ func (s *sqlDB) NextTrack(rid RoomID) (*User, music.Track, error) {
 			tChan <- &result{user: u, track: t}
 			return
 		}
-		tChan <- &result{err: ErrNoTracksInQueue}
+		tChan <- &result{err: db.ErrNoTracksInQueue}
 	}
 	res := <-tChan
 	if res.err != nil {
-		return nil, music.Track{}, res.err
+		return nil, radio.Track{}, res.err
 	}
 	return res.user, res.track, nil
 }
 
-func (s *sqlDB) Rooms() ([]*Room, error) {
+func (s *DB) Rooms() ([]*db.Room, error) {
 	type result struct {
-		rooms []*Room
+		rooms []*db.Room
 		err   error
 	}
 	rmChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		rows, err := db.Query(getRoomsStmt)
+	s.dbChan <- func(sdb *sql.DB) {
+		rows, err := sdb.Query(getRoomsStmt)
 		if err != nil {
 			rmChan <- &result{err: err}
 			return
@@ -395,17 +373,17 @@ func (s *sqlDB) Rooms() ([]*Room, error) {
 	return res.rooms, nil
 }
 
-func (s *sqlDB) AddRoom(rm *Room) error {
+func (s *DB) AddRoom(rm *db.Room) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			errChan <- err
 			return
 		}
 		defer tx.Rollback()
 
-		rBytes, err := rotatorBytes(newRotator(rm.RotatorType))
+		rBytes, err := rotatorBytes(db.NewRotator(rm.RotatorType))
 		if err != nil {
 			errChan <- err
 			return
@@ -417,7 +395,7 @@ func (s *sqlDB) AddRoom(rm *Room) error {
 		}
 
 		// Create an empty history list.
-		teBytes, err := trackEntryBytes([]*TrackEntry{})
+		teBytes, err := trackEntryBytes([]*db.TrackEntry{})
 		if err != nil {
 			errChan <- err
 			return
@@ -431,16 +409,16 @@ func (s *sqlDB) AddRoom(rm *Room) error {
 	return <-errChan
 }
 
-func rotatorBytes(r Rotator) ([]byte, error) {
+func rotatorBytes(r db.Rotator) ([]byte, error) {
 	var buf bytes.Buffer
 	err := gob.NewEncoder(&buf).Encode(&r)
 	return buf.Bytes(), err
 }
 
-func (s *sqlDB) AddUserToRoom(rid RoomID, uid UserID) error {
+func (s *DB) AddUserToRoom(rid db.RoomID, uid db.UserID) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			errChan <- err
 			return
@@ -448,7 +426,7 @@ func (s *sqlDB) AddUserToRoom(rid RoomID, uid UserID) error {
 		defer tx.Rollback()
 
 		// Add the queue.
-		tBytes, err := tracksBytes([]music.Track{})
+		tBytes, err := tracksBytes([]radio.Track{})
 		_, err = tx.Exec(addQueueStmt, string(rid), uid.String(), tBytes)
 		if err != nil {
 			errChan <- err
@@ -472,7 +450,7 @@ func (s *sqlDB) AddUserToRoom(rid RoomID, uid UserID) error {
 	return <-errChan
 }
 
-func startRotator(tx *sql.Tx, rid RoomID) error {
+func startRotator(tx *sql.Tx, rid db.RoomID) error {
 	rot, err := loadRotator(tx.QueryRow(getRotatorStmt, string(rid)))
 	if err != nil {
 		return err
@@ -486,43 +464,43 @@ func startRotator(tx *sql.Tx, rid RoomID) error {
 	return err
 }
 
-func tracksBytes(tracks []music.Track) ([]byte, error) {
+func tracksBytes(tracks []radio.Track) ([]byte, error) {
 	var buf bytes.Buffer
 	err := gob.NewEncoder(&buf).Encode(tracks)
 	return buf.Bytes(), err
 }
 
-func trackEntryBytes(entries []*TrackEntry) ([]byte, error) {
+func trackEntryBytes(entries []*db.TrackEntry) ([]byte, error) {
 	var buf bytes.Buffer
 	err := gob.NewEncoder(&buf).Encode(entries)
 	return buf.Bytes(), err
 }
 
-func (s *sqlDB) User(id UserID) (*User, error) {
+func (s *DB) User(id db.UserID) (*db.User, error) {
 	type result struct {
-		user *User
+		user *db.User
 		err  error
 	}
 	uChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		u, err := loadUser(db.QueryRow(getUserStmt, id.String()))
+	s.dbChan <- func(sdb *sql.DB) {
+		u, err := loadUser(sdb.QueryRow(getUserStmt, id.String()))
 		uChan <- &result{user: u, err: err}
 	}
 	res := <-uChan
 	if res.err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
+		return nil, db.ErrUserNotFound
 	}
 	return res.user, nil
 }
 
-func (s *sqlDB) Users(rid RoomID) ([]*User, error) {
+func (s *DB) Users(rid db.RoomID) ([]*db.User, error) {
 	type result struct {
-		users []*User
+		users []*db.User
 		err   error
 	}
 	uChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			uChan <- &result{err: err}
 			return
@@ -548,28 +526,28 @@ func (s *sqlDB) Users(rid RoomID) ([]*User, error) {
 	return res.users, nil
 }
 
-func (s *sqlDB) AddUser(user *User) error {
+func (s *DB) AddUser(user *db.User) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		_, err := db.Exec(addUserStmt, user.ID.String(), user.First, user.Last)
+	s.dbChan <- func(sdb *sql.DB) {
+		_, err := sdb.Exec(addUserStmt, user.ID.String(), user.First, user.Last)
 		errChan <- err
 	}
 	return <-errChan
 }
 
-func (s *sqlDB) Queue(qid QueueID) (*Queue, error) {
+func (s *DB) Queue(qid db.QueueID) (*Queue, error) {
 	type result struct {
 		queue *Queue
 		err   error
 	}
 	qChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		q, err := loadQueue(db.QueryRow(getQueueStmt, string(qid.RoomID), qid.UserID.String()))
+	s.dbChan <- func(sdb *sql.DB) {
+		q, err := loadQueue(sdb.QueryRow(getQueueStmt, string(qid.RoomID), qid.UserID.String()))
 		qChan <- &result{queue: q, err: err}
 	}
 	res := <-qChan
 	if res.err == sql.ErrNoRows {
-		return nil, ErrQueueNotFound
+		return nil, db.ErrQueueNotFound
 	}
 	if res.err != nil {
 		return nil, fmt.Errorf("failed to load queue: %v", res.err)
@@ -577,25 +555,25 @@ func (s *sqlDB) Queue(qid QueueID) (*Queue, error) {
 	return res.queue, nil
 }
 
-func queueIDFromString(qid string) (QueueID, error) {
+func queueIDFromString(qid string) (db.QueueID, error) {
 	idp := strings.SplitN(qid, ":", 2)
 	if len(idp) != 2 {
-		return QueueID{}, fmt.Errorf("malformed qid %q", qid)
+		return db.QueueID{}, fmt.Errorf("malformed qid %q", qid)
 	}
-	uid, err := userIDFromString(idp[1])
+	uid, err := db.UserIDFromString(idp[1])
 	if err != nil {
-		return QueueID{}, err
+		return db.QueueID{}, err
 	}
-	return QueueID{
-		RoomID: RoomID(idp[0]),
+	return db.QueueID{
+		RoomID: db.RoomID(idp[0]),
 		UserID: uid,
 	}, nil
 }
 
-func (s *sqlDB) AddTrack(qid QueueID, track music.Track) error {
+func (s *DB) AddTrack(qid db.QueueID, track radio.Track) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			errChan <- err
 			return
@@ -617,10 +595,10 @@ func (s *sqlDB) AddTrack(qid QueueID, track music.Track) error {
 	return <-errChan
 }
 
-func (s *sqlDB) RemoveTrack(qid QueueID, idx int) error {
+func (s *DB) RemoveTrack(qid db.QueueID, idx int) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			errChan <- err
 			return
@@ -643,7 +621,7 @@ func (s *sqlDB) RemoveTrack(qid QueueID, idx int) error {
 		// Remove the track from the queue.
 		ts := q.Tracks
 		copy(ts[idx:], ts[idx+1:])
-		ts[len(ts)-1] = music.Track{}
+		ts[len(ts)-1] = radio.Track{}
 		ts = ts[:len(ts)-1]
 
 		tBytes, err := tracksBytes(ts)
@@ -660,19 +638,19 @@ func (s *sqlDB) RemoveTrack(qid QueueID, idx int) error {
 	return <-errChan
 }
 
-func (s *sqlDB) History(rid RoomID) ([]*TrackEntry, error) {
+func (s *DB) History(rid db.RoomID) ([]*db.TrackEntry, error) {
 	type result struct {
-		tracks []*TrackEntry
+		tracks []*db.TrackEntry
 		err    error
 	}
 	hChan := make(chan *result)
-	s.dbChan <- func(db *sql.DB) {
-		ts, err := loadTrackEntries(db.QueryRow(getHistoryStmt, string(rid)))
+	s.dbChan <- func(sdb *sql.DB) {
+		ts, err := loadTrackEntries(sdb.QueryRow(getHistoryStmt, string(rid)))
 		hChan <- &result{tracks: ts, err: err}
 	}
 	res := <-hChan
 	if res.err == sql.ErrNoRows {
-		return nil, ErrRoomNotFound
+		return nil, db.ErrRoomNotFound
 	}
 	if res.err != nil {
 		return nil, fmt.Errorf("failed to load history: %v", res.err)
@@ -680,10 +658,10 @@ func (s *sqlDB) History(rid RoomID) ([]*TrackEntry, error) {
 	return res.tracks, nil
 }
 
-func (s *sqlDB) AddToHistory(rid RoomID, te *TrackEntry) error {
+func (s *DB) AddToHistory(rid db.RoomID, te *db.TrackEntry) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			errChan <- err
 			return
@@ -705,10 +683,10 @@ func (s *sqlDB) AddToHistory(rid RoomID, te *TrackEntry) error {
 	return <-errChan
 }
 
-func (s *sqlDB) MarkVetoed(rid RoomID, uid UserID) error {
+func (s *DB) MarkVetoed(rid db.RoomID, uid db.UserID) error {
 	errChan := make(chan error)
-	s.dbChan <- func(db *sql.DB) {
-		tx, err := db.Begin()
+	s.dbChan <- func(sdb *sql.DB) {
+		tx, err := sdb.Begin()
 		if err != nil {
 			errChan <- err
 			return
@@ -744,7 +722,7 @@ func (s *sqlDB) MarkVetoed(rid RoomID, uid UserID) error {
 	return <-errChan
 }
 
-func (s *sqlDB) Close() error {
+func (s *DB) Close() error {
 	return s.closeFn()
 }
 
