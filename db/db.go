@@ -30,11 +30,11 @@ type TrackEntry struct {
 
 type RoomDB interface {
 	Room(RoomID) (*Room, error)
-	NextUser(RoomID) (*User, error)
+	NextTrack(RoomID) (*User, string, error)
 
-	Rooms() ([]*Room, error)
+	SearchRooms(string) ([]*Room, error)
 
-	AddRoom(*Room) error
+	AddRoom(*Room) (RoomID, error)
 	AddUserToRoom(RoomID, UserID) error
 }
 
@@ -45,11 +45,22 @@ type UserDB interface {
 	AddUser(user *User) error
 }
 
-type TrackDB interface {
-	Tracks(QueueID) (radio.TrackList, error)
-	NextTrack(QueueID) (radio.Track, error)
-	AddTrack(QueueID, radio.Track, int) error
-	RemoveTrack(QueueID, int) error
+type QueueType int
+
+const (
+	AllTracks QueueType = iota
+	PlayedOnly
+	UnplayedOnly
+)
+
+type QueueOptions struct {
+	Type QueueType
+}
+
+type QueueDB interface {
+	TrackList(QueueID, *QueueOptions) (*radio.TrackList, error)
+	AddTrack(QueueID, radio.Track, string) error
+	RemoveTrack(QueueID, string) error
 }
 
 type HistoryDB interface {
@@ -61,7 +72,7 @@ type HistoryDB interface {
 type DB interface {
 	RoomDB
 	UserDB
-	TrackDB
+	QueueDB
 	HistoryDB
 	Close() error
 }

@@ -9,9 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bcspragu/Radiotation/db"
-	"github.com/bcspragu/Radiotation/music"
 	"github.com/bcspragu/Radiotation/spotify"
+	"github.com/bcspragu/Radiotation/sqldb"
 	"github.com/bcspragu/Radiotation/srv"
 	"github.com/namsral/flag"
 )
@@ -24,6 +23,8 @@ var (
 	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
 	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
 	dev           = flag.Bool("dev", true, "If true, use development configuration")
+	frontendGlob  = flag.String("frontend_glob", "", "The location to find the frontend HTML files.")
+	staticDir     = flag.String("static_dir", "", "The location to find the static frontend files.")
 )
 
 func main() {
@@ -34,18 +35,18 @@ func main() {
 		log.Fatalf("Missing a required flag, all of  --client_id, --spotify_client_id, and --spotify_secret are required.")
 	}
 
-	sqlDB, err := db.InitSQLiteDB()
+	db, err := sqldb.New("radiotation.db", sqldb.CryptoRandSource{})
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
 
-	s, err := srv.New(sqlDB, &srv.Config{
-		Dev:      *dev,
-		ClientID: *clientID,
-		FCMKey:   *fcmKey,
-		SongServers: map[db.MusicService]music.SongServer{
-			db.Spotify: spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
-		},
+	s, err := srv.New(db, &srv.Config{
+		Dev:          *dev,
+		ClientID:     *clientID,
+		FCMKey:       *fcmKey,
+		SongServer:   spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
+		FrontendGlob: *frontendGlob,
+		StaticDir:    *staticDir,
 	})
 	if err != nil {
 		log.Fatalf("Failed to start DB: %v", err)
@@ -55,7 +56,7 @@ func main() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-c
-		sqlDB.Close()
+		db.Close()
 		os.Exit(1)
 	}()
 
@@ -63,10 +64,4 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-}
-
-type TrackListResponse struct {
-	Error   bool
-	Message string
-	Tracks  []music.Track
 }

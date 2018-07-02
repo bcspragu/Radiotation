@@ -17,9 +17,23 @@
     </div>
     <div v-if="user" class="columns">
       <div v-if="rooms.length > 0" class="column col-6 col-sm-12">
-        <h2 class="text-center">Available Rooms</h2>
-        <div class="text-center available-room" v-for="room in rooms">
-          <router-link :to="{ name: 'Room', params: { id: room.ID }}">{{room.DisplayName}}</router-link>
+        <h2 class="text-center">Join Room</h2>
+        <div class="form-horizontal">
+          <div class="form-group">
+            <div class="col-3">
+              <label for="room" class="form-label">Room Code</label>
+            </div>
+            <div class="col-9">
+              <input 
+                autocomplete="off"
+                v-on:keyup.enter="joinRoom"
+                type="text"
+                v-model="roomCode"
+                name="room-code"
+                class="form-input"
+                placeholder="Room Code">
+            </div>
+          </div>
         </div>
       </div>
       <div class="column col-6 col-sm-12">
@@ -41,7 +55,7 @@ export default {
   data () {
     return {
       user: null,
-      rooms: [],
+      roomCode: '',
       redirect: this.$route.query.redirect
     }
   },
@@ -51,7 +65,6 @@ export default {
   created () {
     this.$emit('updateTitle', 'Radiotation')
     this.fetchUser()
-    this.fetchRooms()
   },
   methods: {
     fetchUser () {
@@ -72,16 +85,6 @@ export default {
         }
       })
     },
-    fetchRooms () {
-      this.$http.get(`/rooms`).then(response => {
-        var data = JSON.parse(response.body)
-        if (data.Error) {
-          this.$emit('ajaxErr', data)
-          return
-        }
-        this.rooms = data
-      })
-    },
     onSignIn (googleUser) {
       if (this.user) {
         if (this.redirect) {
@@ -97,6 +100,9 @@ export default {
         }
         this.fetchUser()
       })
+    },
+    joinRoom () {
+      this.$router.push({name: 'Room', params: {id: this.roomCode}})
     }
   }
 }
@@ -105,10 +111,6 @@ export default {
 <style scoped>
 .instructions {
   margin-top: 1em;
-}
-
-.available-room {
-  font-size: 24px;
 }
 
 #g-signin {

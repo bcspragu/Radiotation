@@ -17,17 +17,6 @@
     </div>
     <div class="form-group">
       <div class="col-3">
-        <label for="musicSource" class="form-label">Music Source</label>
-      </div>
-      <div class="col-9">
-        <select v-model="musicSource" name="musicSource" class="form-select">
-          <!--<option value="playmusic">Google Play Music</option>-->
-          <option value="spotify">Spotify</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <div class="col-3">
         <label for="shuffleOrder" class="form-label">Shuffle Order</label>
       </div>
       <div class="col-9">
@@ -48,17 +37,14 @@
 export default {
   data () {
     return {
-      roomName: this.defaultName,
-      musicSource: 'spotify',
+      roomName: '',
       shuffleOrder: 'robin'
     }
   },
-  props: ['defaultName'],
   methods: {
     createRoom () {
       var data = {
         roomName: this.roomName,
-        musicSource: this.musicSource,
         shuffleOrder: this.shuffleOrder
       }
       this.$http.post('/room', data, {emulateJSON: true}).then(response => {

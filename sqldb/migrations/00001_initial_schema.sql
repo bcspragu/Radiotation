@@ -9,17 +9,39 @@ CREATE TABLE Users (
 CREATE TABLE Rooms (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
+  normalized_name TEXT NOT NULL,
   rotator BLOB NOT NULL,
-	rotator_type INTEGER NOT NULL,
-	music_service INTEGER NOT NULL
+	rotator_type INTEGER NOT NULL
+);
+
+CREATE TABLE Tracks (
+  id TEXT NOT NULL,
+  track BLOB NOT NULL
+);
+
+CREATE TABLE QueueTracks (
+  id TEXT NOT NULL,
+  previous_id TEXT,
+  next_id TEXT,
+  track_id NOT NULL,
+	room_id TEXT NOT NULL,
+	user_id TEXT NOT NULL,
+	added_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  played BOOLEAN NOT NULL CHECK (played IN (0,1)),
+	FOREIGN KEY (previous_id) REFERENCES QueueTracks(id),
+	FOREIGN KEY (next_id) REFERENCES QueueTracks(id),
+	FOREIGN KEY (track_id) REFERENCES Tracks(id),
+	FOREIGN KEY (room_id) REFERENCES Rooms(id),
+	FOREIGN KEY (user_id) REFERENCES Users(id),
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE Queues (
 	room_id TEXT NOT NULL,
 	user_id TEXT NOT NULL,
-	offset INTEGER DEFAULT 0,
-	tracks BLOB NOT NULL,
+	next_queue_track_id TEXT,
 	joined_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	FOREIGN KEY (next_queue_track_id) REFERENCES QueueTracks(id),
 	FOREIGN KEY (room_id) REFERENCES Rooms(id),
 	FOREIGN KEY (user_id) REFERENCES Users(id),
 	PRIMARY KEY (room_id, user_id)
@@ -36,5 +58,6 @@ CREATE TABLE History (
 
 DROP TABLE History;
 DROP TABLE Queues;
+DROP TABLE QueueTracks;
+DROP TABLE Tracks;
 DROP TABLE Rooms;
-DROP TABLE Users;

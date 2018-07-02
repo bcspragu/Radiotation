@@ -13,3 +13,4 @@ inmemdb
 assets/dist/*
 cmd/goose/goose
 cmd/server/server
+cmd/server/config.prod

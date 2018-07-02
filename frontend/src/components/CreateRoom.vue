@@ -1,8 +1,8 @@
 <template>
   <div>
-    <h5 class="header text-center">Room '{{id}}' doesn't exist</h5>
-    <h6 class="subheader text-center">You can create it here.</h6>
-    <room-form :default-name="id"></room-form>
+    <h5 class="header text-center">Room Code '{{id}}' doesn't exist</h5>
+    <h6 class="subheader text-center">Want to make a new room?</h6>
+    <room-form></room-form>
   </div>
 </template>
 

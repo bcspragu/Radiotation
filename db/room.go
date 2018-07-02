@@ -5,18 +5,12 @@ import (
 	"encoding/gob"
 	"log"
 	"math/rand"
-	"regexp"
-	"strings"
 	"time"
-)
 
-var (
-	nameRE = regexp.MustCompile(`[^a-zA-Z0-9\-]+`)
+	"github.com/bcspragu/Radiotation/rng"
 )
 
 type (
-	// MusicService is an enum for supported music streaming platforms.
-	MusicService int
 	// RotatorType is an enum for the type of rotation for the room.
 	RotatorType int
 
@@ -24,10 +18,9 @@ type (
 	RoomID string
 
 	Room struct {
-		ID           RoomID
-		DisplayName  string
-		RotatorType  RotatorType
-		MusicService MusicService
+		ID          RoomID
+		DisplayName string
+		RotatorType RotatorType
 	}
 )
 
@@ -38,25 +31,10 @@ func init() {
 }
 
 const (
-	PlayMusic MusicService = iota
-	Spotify
-)
-
-const (
 	RoundRobin RotatorType = iota
 	Shuffle
 	Random
 )
-
-func (m MusicService) String() string {
-	switch m {
-	case PlayMusic:
-		return "Play Music"
-	case Spotify:
-		return "Spotify"
-	}
-	return "Unknown"
-}
 
 func (r RotatorType) String() string {
 	switch r {
@@ -73,31 +51,43 @@ func (r RotatorType) String() string {
 func NewRotator(r RotatorType) Rotator {
 	switch r {
 	case RoundRobin:
-		return &roundRobinRotator{}
+		return newRoundRobin()
 	case Shuffle:
-		return &shuffleRotator{R: rand.New(rand.NewSource(time.Now().Unix()))}
+		return newShuffle(rng.NewSource(time.Now().Unix()))
 	case Random:
-		return &randomRotator{R: rand.New(rand.NewSource(time.Now().Unix()))}
+		return newRandom(rng.NewSource(time.Now().Unix()))
 	default:
 		return nil
 	}
+}
+
+func newRoundRobin() *roundRobinRotator {
+	return &roundRobinRotator{}
+}
+
+func newShuffle(src *rng.Source) *shuffleRotator {
+	return &shuffleRotator{Src: src, AddNext: make(map[int]int)}
+}
+
+func newRandom(src *rng.Source) *randomRotator {
+	return &randomRotator{Src: src}
 }
 
 // A Rotator says what the next index should be from a list of size n. They can
 // assume that n will never decrease, but it can increase between any two
 // invocations of start.
 type Rotator interface {
-	// NextIndex returns the next index in the current rotation, and if this is
-	// the last entry in the current rotation
-	NextIndex() (int, bool)
-	// Start takes the size of the current rotation and should be called before
-	// we do our first rotation, and after each subsequent rotation is over
-	Start(n int)
+	// NextIndex returns the next index in the rotation.
+	NextIndex() int
+	// Add adds a new index into the rotation. Depending on the implementation,
+	// this may or may not be at the end. It's invalid to call NextIndex() before
+	// Add() has been called at least once.
+	Add()
 }
 
 type randomRotator struct {
-	N int
-	R *rand.Rand
+	N   int
+	Src *rng.Source
 }
 
 func LoadRotator(b []byte) Rotator {
@@ -120,84 +110,93 @@ func SaveRotator(r Rotator) []byte {
 	return buf.Bytes()
 }
 
-func (r *randomRotator) NextIndex() (int, bool) {
+func (r *randomRotator) NextIndex() int {
 	if r.N == 0 {
-		return 0, true
+		return 0
 	}
-	return r.R.Intn(r.N), true
+	return rand.New(r.Src).Intn(r.N)
 }
 
-func (r *randomRotator) Start(n int) {
-	r.N = n
+func (r *randomRotator) Add() {
+	r.N++
 }
 
 type shuffleRotator struct {
-	ShuffleList []int
-	Index       int
-	R           *rand.Rand
+	Perm  []int
+	Index int
+	// AddNext is a map from a user to the location in the queue to add them on
+	// our next rotation, to make sure everyone gets a song not too long after
+	// joining.
+	AddNext map[int]int
+	Src     *rng.Source
 }
 
-func (s *shuffleRotator) NextIndex() (int, bool) {
-	if len(s.ShuffleList) == 0 {
-		return 0, true
+func (s *shuffleRotator) NextIndex() int {
+	if len(s.Perm) == 0 {
+		return 0
 	}
 
-	if s.Index >= len(s.ShuffleList) {
-		// Keep returning the last element if we've gone too far
-		return s.ShuffleList[len(s.ShuffleList)-1], true
+	if s.Index >= len(s.Perm) {
+		s.newRotation()
 	}
 
-	i := s.ShuffleList[s.Index]
+	i := s.Perm[s.Index]
 	s.Index++
-	return i, s.Index == len(s.ShuffleList)
+	return i
 }
 
-func (s *shuffleRotator) Start(n int) {
-	s.ShuffleList = s.R.Perm(n)
+func (s *shuffleRotator) Add() {
+	// Insert half way into the queue.
+	i := (s.Index + (len(s.Perm)+1)/2) % (len(s.Perm) + 1)
+
+	// If we've already passed the index, add them for next time.
+	if i < s.Index {
+		s.AddNext[len(s.Perm)] = i
+		return
+	}
+
+	// Otherwise, just add them into the queue.
+	s.Perm = append(s.Perm, 0)
+	copy(s.Perm[i+1:], s.Perm[i:])
+	s.Perm[i] = len(s.Perm) - 1
+}
+
+func (s *shuffleRotator) newRotation() {
+	s.Perm = rand.New(s.Src).Perm(len(s.Perm))
+
+	for v, i := range s.AddNext {
+		s.Perm = append(s.Perm, 0)
+		copy(s.Perm[i+1:], s.Perm[i:])
+		s.Perm[i] = v
+
+		delete(s.AddNext, v)
+	}
+
 	s.Index = 0
 }
 
+// roundRobinRotator goes through users in the same order every time. When a
+// new user is added to the rotation, they are added in the middle.
 type roundRobinRotator struct {
-	Offset int
-	N      int
+	Order []int
+	Index int
 }
 
-func (r *roundRobinRotator) NextIndex() (int, bool) {
-	if r.N == 0 {
-		return 0, true
+func (r *roundRobinRotator) NextIndex() int {
+	if len(r.Order) == 0 {
+		return 0
 	}
 
-	i := r.Offset
-	r.Offset = (r.Offset + 1) % r.N
-	return i, r.Offset == 0
+	i := r.Order[r.Index]
+	r.Index = (r.Index + 1) % len(r.Order)
+	return i
 }
 
-func (r *roundRobinRotator) Start(n int) {
-	r.Offset = 0
-	r.N = n
-}
+func (r *roundRobinRotator) Add() {
+	// Insert half way into the queue.
+	i := (r.Index + (len(r.Order)+1)/2) % (len(r.Order) + 1)
 
-// NewRoom initializes a new room with no users.
-func NewRoom(name string, ms MusicService) *Room {
-	return &Room{
-		DisplayName:  name,
-		ID:           Normalize(name),
-		MusicService: ms,
-	}
-}
-
-func Normalize(name string) RoomID {
-	if len(name) == 0 {
-		return RoomID("blank")
-	}
-
-	name = strings.ToLower(name)
-	name = strings.TrimSpace(name)
-	name = strings.Replace(name, " ", "-", -1)
-	name = strings.Replace(name, "_", "-", -1)
-	name = nameRE.ReplaceAllString(name, "")
-	if len(name) > 15 {
-		name = name[:15]
-	}
-	return RoomID(name)
+	r.Order = append(r.Order, 0)
+	copy(r.Order[i+1:], r.Order[i:])
+	r.Order[i] = len(r.Order) - 1
 }

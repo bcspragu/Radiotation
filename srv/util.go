@@ -59,7 +59,7 @@ func (s *Srv) user(r *http.Request) (*db.User, error) {
 }
 
 func roomID(r *http.Request) db.RoomID {
-	return db.Normalize(mux.Vars(r)["id"])
+	return db.RoomID(mux.Vars(r)["id"])
 }
 
 func (s *Srv) room(r *http.Request) (*db.Room, error) {

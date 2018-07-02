@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/NaySoftware/go-fcm"
 	"github.com/bcspragu/Radiotation/db"
@@ -45,15 +44,17 @@ type Srv struct {
 
 	roomDB    db.RoomDB
 	userDB    db.UserDB
-	trackDB   db.TrackDB
+	queueDB   db.QueueDB
 	historyDB db.HistoryDB
 }
 
 type Config struct {
-	ClientID    string
-	SongServers map[db.MusicService]radio.SongServer
-	Dev         bool
-	FCMKey      string
+	ClientID     string
+	SongServer   radio.SongServer
+	Dev          bool
+	FCMKey       string
+	FrontendGlob string
+	StaticDir    string
 }
 
 // New returns an initialized server
@@ -68,15 +69,10 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 		log.Fatalf("Failed to get provider for Google: %v", err)
 	}
 
-	glob := "frontend/dist/*.html"
-	if cfg.Dev {
-		glob = "frontend/*.html"
-	}
-
 	s := &Srv{
 		sc:   sc,
 		h:    hub.New(),
-		tmpl: template.Must(template.ParseGlob(glob)),
+		tmpl: template.Must(template.ParseGlob(cfg.FrontendGlob)),
 		fcm:  fcm.NewFcmClient(cfg.FCMKey),
 		cfg:  cfg,
 		googleVerifier: googleProvider.Verifier(&oidc.Config{
@@ -84,7 +80,7 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 		}),
 		roomDB:    sdb,
 		userDB:    sdb,
-		trackDB:   sdb,
+		queueDB:   sdb,
 		historyDB: sdb,
 	}
 
@@ -99,7 +95,6 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/user", s.serveUser).Methods("GET")
 	// Verifying login and storing a cookie.
 	s.r.HandleFunc("/verifyToken", s.serveVerifyToken).Methods("POST")
-	s.r.HandleFunc("/rooms", s.serveRooms).Methods("GET")
 	// Load room information for a user.
 	s.r.HandleFunc("/room/{id}", s.withRoomAndUser(s.serveRoom)).Methods("GET")
 	// Search for a song.
@@ -121,13 +116,8 @@ func (s *Srv) initHandlers() {
 	s.r.HandleFunc("/ws/room/{id}", s.serveData)
 
 	// Static asset serving
-	if s.cfg.Dev {
-		s.r.PathPrefix("/static/").
-			Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("frontend/static/"))))
-	} else {
-		s.r.PathPrefix("/static/").
-			Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("frontend/dist/static/"))))
-	}
+	s.r.PathPrefix("/static/").
+		Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(s.cfg.StaticDir))))
 }
 
 func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -161,12 +151,14 @@ func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {
 
 func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
 	trackID := r.FormValue("id")
-	track, err := s.track(rm, trackID)
+	afterQTID := r.FormValue("afterQTID")
+
+	track, err := s.track(trackID)
 	if err != nil {
 		return err
 	}
 
-	if err := s.trackDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track); err != nil {
+	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track, afterQTID); err != nil {
 		log.Println(err)
 	}
 
@@ -175,12 +167,9 @@ func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm 
 }
 
 func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	idx, err := strconv.Atoi(r.FormValue("index"))
-	if err != nil {
-		return err
-	}
+	qtID := r.FormValue("queueTrackID")
 
-	if err := s.trackDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, idx); err != nil {
+	if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, qtID); err != nil {
 		log.Println(err)
 	}
 
@@ -198,11 +187,17 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, t, err := s.roomDB.NextTrack(rm.ID)
+	u, tID, err := s.roomDB.NextTrack(rm.ID)
 	if err == db.ErrNoTracksInQueue {
 		jsonErr(w, errors.New("No tracks to choose from"))
 		return
 	} else if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	t, err := s.track(tID)
+	if err != nil {
 		jsonErr(w, err)
 		return
 	}
@@ -240,29 +235,19 @@ func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, errors.New("No room name given"))
 		return
 	}
-	id := db.Normalize(dispName)
 
-	_, err := s.roomDB.Room(id)
-	if err != nil && err != db.ErrRoomNotFound {
+	room := &db.Room{
+		DisplayName: dispName,
+		RotatorType: rotatorTypeByName(r.FormValue("shuffleOrder")),
+	}
+
+	rID, err := s.roomDB.AddRoom(room)
+	if err != nil {
 		jsonErr(w, err)
 		return
 	}
 
-	if err == db.ErrRoomNotFound {
-		room := &db.Room{
-			ID:           id,
-			DisplayName:  dispName,
-			RotatorType:  rotatorTypeByName(r.FormValue("shuffleOrder")),
-			MusicService: musicServiceByName(r.FormValue("musicSource")),
-		}
-
-		if err := s.roomDB.AddRoom(room); err != nil {
-			jsonErr(w, err)
-			return
-		}
-	}
-
-	jsonResp(w, struct{ ID string }{string(id)})
+	jsonResp(w, struct{ ID string }{string(rID)})
 }
 
 func rotatorTypeByName(name string) db.RotatorType {
@@ -278,27 +263,25 @@ func rotatorTypeByName(name string) db.RotatorType {
 	return typ
 }
 
-func musicServiceByName(name string) db.MusicService {
-	typ := db.Spotify
-	switch name {
-	case "spotify":
-		typ = db.Spotify
-	case "playmusic":
-		typ = db.PlayMusic
+func (s *Srv) serveRoomSearch(w http.ResponseWriter, r *http.Request) error {
+	q := r.FormValue("query")
+	if q == "" {
+		return errors.New("No query given")
 	}
-	return typ
-}
 
-func (s *Srv) serveRooms(w http.ResponseWriter, r *http.Request) {
-	rooms, err := s.roomDB.Rooms()
+	rooms, err := s.roomDB.SearchRooms(q)
 	if err != nil {
 		jsonErr(w, err)
-		return
+		return nil
 	}
+
 	jsonResp(w, rooms)
+	return nil
 }
 
 func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
+	return errors.New("sorry, vetoing not implemented yet")
+
 	users, err := s.userDB.Users(rm.ID)
 	if err != nil {
 		return err
@@ -321,10 +304,15 @@ func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 		return err
 	}
 
-	nu, t, err := s.roomDB.NextTrack(rm.ID)
+	nu, tID, err := s.roomDB.NextTrack(rm.ID)
 	if err == db.ErrNoTracksInQueue {
 		return errors.New("No tracks left in queue")
 	} else if err != nil {
+		return err
+	}
+
+	t, err := s.track(tID)
+	if err != nil {
 		return err
 	}
 
@@ -382,20 +370,16 @@ func lastVeto(history []*db.TrackEntry, uid db.UserID) (songsSince int, veto boo
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	tracks := []radio.Track{}
+	tl, err := s.queueDB.TrackList(db.QueueID{
+		RoomID: rm.ID,
+		UserID: u.ID,
+	}, &db.QueueOptions{Type: db.AllTracks})
 
-	q, err := s.trackDB.NextTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID})
-	if err == nil {
-		tracks = q.Tracks
-	}
-	switch err {
-	case db.ErrQueueNotFound:
-		if err = s.roomDB.AddUserToRoom(rm.ID, u.ID); err != nil {
+	if err == db.ErrQueueNotFound {
+		if err := s.roomDB.AddUserToRoom(rm.ID, u.ID); err != nil {
 			return err
 		}
-	case nil:
-		tracks = q.Tracks
-	default:
+	} else if err != nil {
 		return err
 	}
 
@@ -405,10 +389,10 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 	}
 
 	tracksWithPlayed := []*trackWithPlayed{}
-	for i, t := range tracks {
+	for i, t := range tl.Tracks {
 		tracksWithPlayed = append(tracksWithPlayed, &trackWithPlayed{
 			Track:  t,
-			Played: i < q.Offset,
+			Played: i < tl.NextIndex,
 		})
 	}
 
@@ -421,34 +405,34 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 }
 
 func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	tracks, err := s.search(rm, r.FormValue("query"))
+	tracks, err := s.search(r.FormValue("query"))
 	if err != nil {
 		return err
 	}
 
-	queue, err := s.queueDB.Queue(db.QueueID{RoomID: rm.ID, UserID: u.ID})
+	tl, err := s.queueDB.TrackList(db.QueueID{
+		RoomID: rm.ID,
+		UserID: u.ID,
+	}, &db.QueueOptions{Type: db.PlayedOnly})
 	if err != nil {
 		return err
 	}
 
-	inQueue := make(map[string]int)
-	for i, t := range queue.Tracks[queue.Offset:] {
-		inQueue[t.ID] = i + queue.Offset
+	inQueue := make(map[string]bool)
+	for _, t := range tl.Tracks {
+		inQueue[t.ID] = true
 	}
 
 	type trackInQueue struct {
 		radio.Track
 		InQueue bool
-		Index   int
 	}
 
 	tracksInQueue := []*trackInQueue{}
 	for _, t := range tracks {
-		idx, iq := inQueue[t.ID]
 		tracksInQueue = append(tracksInQueue, &trackInQueue{
 			Track:   t,
-			InQueue: iq,
-			Index:   idx,
+			InQueue: inQueue[t.ID],
 		})
 	}
 
@@ -563,21 +547,10 @@ func loadOrGenKey(name string) ([]byte, error) {
 	return dat, nil
 }
 
-func (s *Srv) search(rm *db.Room, query string) ([]radio.Track, error) {
-	ss := s.songServer(rm)
-	return ss.Search(query)
+func (s *Srv) search(query string) ([]radio.Track, error) {
+	return s.cfg.SongServer.Search(query)
 }
 
-func (s *Srv) track(rm *db.Room, id string) (radio.Track, error) {
-	ss := s.songServer(rm)
-	return ss.Track(id)
-}
-
-func (s *Srv) songServer(rm *db.Room) radio.SongServer {
-	ss, ok := s.cfg.SongServers[rm.MusicService]
-	if !ok {
-		log.Printf("Couldn't find song server for room %+v", rm)
-		return s.cfg.SongServers[db.Spotify]
-	}
-	return ss
+func (s *Srv) track(id string) (radio.Track, error) {
+	return s.cfg.SongServer.Track(id)
 }
