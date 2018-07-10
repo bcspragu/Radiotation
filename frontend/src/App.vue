@@ -2,7 +2,7 @@
   <div id="app">
     <header class="navbar">
       <section class="navbar-section navbar-main">
-        <router-link :to="{ name: 'Home' }"><img class="logo" src="static/radiotation_logo.png"></router-link>
+        <router-link :to="{ name: 'Home' }"><img class="logo" src="./assets/radiotation_logo.png"></router-link>
         <div class="btn-header btn btn-link">{{title}}</div>
       </section>
       <section class="navbar-section"></section>
@@ -67,4 +67,13 @@ html, body, #app {
   overflow: hidden;
   white-space: nowrap;
 }
+</style>
+
+<style lang="scss">
+// Import Bulma's core
+@import "~bulma/sass/utilities/_all";
+
+// Import Bulma and Buefy styles
+@import "~bulma";
+@import "~buefy/src/scss/buefy";
 </style>

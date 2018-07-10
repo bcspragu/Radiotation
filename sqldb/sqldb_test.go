@@ -4,10 +4,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/bcspragu/Radiotation/db"
+	"github.com/bcspragu/Radiotation/radio"
 	"github.com/bcspragu/Radiotation/rng"
+	"github.com/google/go-cmp/cmp"
 	"github.com/pressly/goose"
 
 	// Init DB drivers.
@@ -24,7 +27,7 @@ func TestRoomDoesntExist(t *testing.T) {
 	}
 
 	if err != db.ErrRoomNotFound {
-		t.Errorf("Room(\"NOTA\") returned err %v, wanted %v", err, db.ErrRoomNotFound)
+		t.Errorf("Room(\"NOTA\"): %v, wanted %v", err, db.ErrRoomNotFound)
 	}
 }
 
@@ -34,14 +37,13 @@ func TestAddRoom(t *testing.T) {
 
 	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.Random})
 	if err != nil {
-		t.Errorf("AddRoom() returned err %v", err)
+		t.Errorf("AddRoom(): %v", err)
 	}
 
 	r, err := sdb.Room(rID)
 	if err != nil {
-		t.Errorf("Room() returned err %v", err)
+		t.Errorf("Room(): %v", err)
 	}
-	t.Log(3)
 
 	if r.DisplayName != "Test Room" {
 		t.Errorf("DisplayName = %q, want \"Test Room\"", r.DisplayName)
@@ -53,6 +55,206 @@ func TestAddRoom(t *testing.T) {
 
 	if r.RotatorType != db.Random {
 		t.Errorf("RotatorType = %q, want \"Random\"", r.RotatorType)
+	}
+}
+
+func TestSearchRooms(t *testing.T) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	rooms := []string{"Room One", "Room Two", "Another One", "Some Guy's Room"}
+
+	for _, name := range rooms {
+		if _, err := sdb.AddRoom(&db.Room{DisplayName: name, RotatorType: db.Random}); err != nil {
+			t.Errorf("AddRoom(): %v", err)
+		}
+	}
+
+	tests := []struct {
+		query string
+		want  []string
+	}{
+		{"Room", []string{"Room One", "Room Two", "Some Guy's Room"}},
+		{"room", []string{"Room One", "Room Two", "Some Guy's Room"}},
+		{"oNe", []string{"Another One", "Room One"}},
+		{"TWO", []string{"Room Two"}},
+		{"guy", []string{"Some Guy's Room"}},
+		{"", []string{}},
+		{"llaswd", []string{}},
+	}
+
+	for _, tc := range tests {
+		rooms, err := sdb.SearchRooms(tc.query)
+		if err != nil {
+			t.Errorf("SearchRooms: %v", err)
+			continue
+		}
+
+		names := []string{}
+		for _, r := range rooms {
+			names = append(names, r.DisplayName)
+		}
+		sort.Strings(names)
+
+		if diff := cmp.Diff(tc.want, names); diff != "" {
+			t.Errorf("SearchRooms(%q) (-want +got): \n%s", tc.query, diff)
+		}
+	}
+}
+
+func TestAddUserToRoom(t *testing.T) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.Random})
+	if err != nil {
+		t.Fatalf("AddRoom(): %v", err)
+	}
+
+	users, err := sdb.Users(rID)
+	if err != nil {
+		t.Fatalf("Users(): %v", err)
+	}
+
+	if len(users) != 0 {
+		t.Errorf("Users() = %q, wanted none", users)
+	}
+
+	var (
+		uID1  = db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+		user1 = &db.User{ID: uID1, First: "Test", Last: "Name"}
+	)
+	if err := sdb.AddUser(user1); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	if err := sdb.AddUserToRoom(rID, uID1); err != nil {
+		t.Fatalf("AddUserToRoom(): %v", err)
+	}
+
+	users, err = sdb.Users(rID)
+	if err != nil {
+		t.Fatalf("Users(): %v", err)
+	}
+
+	if len(users) != 1 {
+		t.Fatalf("Users() = %q, wanted one user", users)
+	}
+
+	if diff := cmp.Diff(users[0], user1); diff != "" {
+		t.Errorf("User (-want +got)\n%s", diff)
+	}
+
+	var (
+		uID2  = db.UserID{AccountType: db.GoogleAccount, ID: "testid2"}
+		user2 = &db.User{ID: uID2, First: "Another", Last: "Test"}
+	)
+
+	if err := sdb.AddUser(user2); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	if err := sdb.AddUserToRoom(rID, uID2); err != nil {
+		t.Fatalf("AddUserToRoom(): %v", err)
+	}
+
+	users, err = sdb.Users(rID)
+	if err != nil {
+		t.Fatalf("Users(): %v", err)
+	}
+
+	if len(users) != 2 {
+		t.Fatalf("Users() = %q, wanted two users", users)
+	}
+}
+
+func TestUser(t *testing.T) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	wantUser := &db.User{ID: uID, First: "Test", Last: "Name"}
+	if err := sdb.AddUser(wantUser); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	gotUser, err := sdb.User(uID)
+	if err != nil {
+		t.Fatalf("User(): %v", err)
+	}
+
+	if diff := cmp.Diff(wantUser, gotUser); diff != "" {
+		t.Errorf("User (-want +got)\n%s", diff)
+	}
+}
+
+func TestTrackList(t *testing.T) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.Random})
+	if err != nil {
+		t.Fatalf("AddRoom(): %v", err)
+	}
+
+	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	user := &db.User{ID: uID, First: "Test", Last: "Name"}
+
+	if err := sdb.AddUser(user); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	if err := sdb.AddUserToRoom(rID, uID); err != nil {
+		t.Fatalf("AddUserToRoom(): %v", err)
+	}
+
+	qID := db.QueueID{RoomID: rID, UserID: uID}
+	track1 := radio.Track{
+		ID:      "testID1",
+		Name:    "Test Track1",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist1"}},
+	}
+	track2 := radio.Track{
+		ID:      "testID2",
+		Name:    "Test Track2",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist2"}},
+	}
+	if err := sdb.AddTrack(qID, track1, ""); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	tl, err := sdb.TrackList(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("TrackList(): %v", err)
+	}
+
+	if c := len(tl.Tracks); c != 1 {
+		t.Fatalf("Got %d tracks in track list, want %d", c, 1)
+	}
+
+	if diff := cmp.Diff(track1, tl.Tracks[0]); diff != "" {
+		t.Errorf("Track (-want +got)\n%s", diff)
+	}
+
+	if err := sdb.AddTrack(qID, track2, tl.QueueTrackIDs[0]); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	tl, err = sdb.TrackList(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("TrackList(): %v", err)
+	}
+
+	if c := len(tl.Tracks); c != 2 {
+		t.Fatalf("Got %d tracks in track list, want %d", c, 2)
+	}
+
+	if diff := cmp.Diff(track1, tl.Tracks[0]); diff != "" {
+		t.Errorf("Track #1 (-want +got)\n%s", diff)
+	}
+
+	if diff := cmp.Diff(track2, tl.Tracks[1]); diff != "" {
+		t.Errorf("Track #2 (-want +got)\n%s", diff)
 	}
 }
 

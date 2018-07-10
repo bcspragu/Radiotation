@@ -69,10 +69,11 @@ export default {
   methods: {
     fetchUser () {
       var vue = this
-      vue.$http.get('/user').then(response => {
+      vue.$http.get('user').then(response => {
         var data = JSON.parse(response.body)
         if (data.Error) {
           // eslint-disable-next-line
+          /*
           gapi.signin2.render('g-signin', {
             'scope': 'profile email',
             'width': 240,
@@ -80,6 +81,7 @@ export default {
             'onsuccess': vue.onSignIn,
             'onfailure': vue.onFailure
           })
+          */
         } else {
           vue.user = data
         }

@@ -1,22 +1,25 @@
 -- +goose Up
 -- SQL in this section is executed when the migration is applied.
 CREATE TABLE Users (
-  id TEXT PRIMARY KEY,
+  id TEXT,
   first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL
+  last_name TEXT NOT NULL,
+  PRIMARY KEY (id)
 );
 
 CREATE TABLE Rooms (
-  id TEXT PRIMARY KEY,
+  id TEXT,
   display_name TEXT NOT NULL,
   normalized_name TEXT NOT NULL,
   rotator BLOB NOT NULL,
-	rotator_type INTEGER NOT NULL
+	rotator_type INTEGER NOT NULL,
+  PRIMARY KEY (id)
 );
 
 CREATE TABLE Tracks (
-  id TEXT NOT NULL,
-  track BLOB NOT NULL
+  id TEXT,
+  track BLOB NOT NULL,
+  PRIMARY KEY (id)
 );
 
 CREATE TABLE QueueTracks (
@@ -48,9 +51,10 @@ CREATE TABLE Queues (
 );
 
 CREATE TABLE History (
-	room_id TEXT PRIMARY KEY,
+	room_id TEXT,
 	track_entries BLOB NOT NULL,
 	FOREIGN KEY (room_id) REFERENCES Rooms(id)
+	PRIMARY KEY (room_id)
 );
 
 -- +goose Down

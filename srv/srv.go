@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"github.com/bcspragu/Radiotation/hub"
 	"github.com/bcspragu/Radiotation/radio"
 	oidc "github.com/coreos/go-oidc"
-	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/websocket"
 )
@@ -33,12 +31,11 @@ var (
 )
 
 type Srv struct {
-	sc   *securecookie.SecureCookie
-	h    *hub.Hub
-	r    *mux.Router
-	tmpl *template.Template
-	fcm  *fcm.FcmClient
-	cfg  *Config
+	sc  *securecookie.SecureCookie
+	h   *hub.Hub
+	mux *http.ServeMux
+	fcm *fcm.FcmClient
+	cfg *Config
 
 	googleVerifier *oidc.IDTokenVerifier
 
@@ -70,11 +67,10 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 	}
 
 	s := &Srv{
-		sc:   sc,
-		h:    hub.New(),
-		tmpl: template.Must(template.ParseGlob(cfg.FrontendGlob)),
-		fcm:  fcm.NewFcmClient(cfg.FCMKey),
-		cfg:  cfg,
+		sc:  sc,
+		h:   hub.New(),
+		fcm: fcm.NewFcmClient(cfg.FCMKey),
+		cfg: cfg,
 		googleVerifier: googleProvider.Verifier(&oidc.Config{
 			ClientID: cfg.ClientID,
 		}),
@@ -84,60 +80,50 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 		historyDB: sdb,
 	}
 
-	s.initHandlers()
+	s.mux = s.initMux()
 
 	return s, nil
 }
 
-func (s *Srv) initHandlers() {
-	s.r = mux.NewRouter()
-	s.r.HandleFunc("/", s.serveHome).Methods("GET")
-	s.r.HandleFunc("/user", s.serveUser).Methods("GET")
+func (s *Srv) initMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	// GET
+	mux.HandleFunc("/api/user", s.serveUser)
 	// Verifying login and storing a cookie.
-	s.r.HandleFunc("/verifyToken", s.serveVerifyToken).Methods("POST")
+	// POST
+	mux.HandleFunc("/api/verifyToken", s.serveVerifyToken)
 	// Load room information for a user.
-	s.r.HandleFunc("/room/{id}", s.withRoomAndUser(s.serveRoom)).Methods("GET")
+	// GET
+	mux.HandleFunc("/api/room/{id}", s.withRoomAndUser(s.serveRoom))
 	// Search for a song.
-	s.r.HandleFunc("/room/{id}/search", s.withRoomAndUser(s.serveSearch)).Methods("GET")
+	// GET
+	mux.HandleFunc("/api/room/{id}/search", s.withRoomAndUser(s.serveSearch))
 
 	// Get the next song. This should be a POST action, but its GET for
 	// debugging.
-	s.r.HandleFunc("/room/{id}/pop", s.serveSong).Methods("GET")
-	s.r.HandleFunc("/room/{id}/veto", s.withRoomAndUser(s.serveVeto)).Methods("POST")
+	mux.HandleFunc("/api/room/{id}/pop", s.serveSong)
+	// POST
+	mux.HandleFunc("/api/room/{id}/veto", s.withRoomAndUser(s.serveVeto))
 
 	// Create a room.
-	s.r.HandleFunc("/room", s.serveCreateRoom).Methods("POST")
+	// POST
+	mux.HandleFunc("/api/room", s.serveCreateRoom)
 	// Add a song to a queue.
-	s.r.HandleFunc("/room/{id}/add", s.withRoomAndUser(s.addToQueue)).Methods("POST")
+	// POST
+	mux.HandleFunc("/api/room/{id}/add", s.withRoomAndUser(s.addToQueue))
 	// Remove a song from a queue.
-	s.r.HandleFunc("/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue)).Methods("POST")
+	// POST
+	mux.HandleFunc("/api/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue))
 
 	// WebSocket handler for new songs.
-	s.r.HandleFunc("/ws/room/{id}", s.serveData)
+	// GET
+	mux.HandleFunc("/api/ws/room/{id}", s.serveData)
 
-	// Static asset serving
-	s.r.PathPrefix("/static/").
-		Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(s.cfg.StaticDir))))
+	return mux
 }
 
 func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.r.ServeHTTP(w, r)
-}
-
-func (s *Srv) serveHome(w http.ResponseWriter, r *http.Request) {
-	ws := template.JSStr(fmt.Sprintf("wss://%s", r.Host))
-	var js template.HTML
-	if s.cfg.Dev {
-		js = template.HTML("//localhost:8081/app.js")
-		ws = template.JSStr(fmt.Sprintf("ws://%s", r.Host))
-	}
-	if err := s.tmpl.ExecuteTemplate(w, "index.html", struct {
-		ClientID      string
-		JS            template.HTML
-		WebSocketAddr template.JSStr
-	}{s.cfg.ClientID, js, ws}); err != nil {
-		serveError(w, err)
-	}
+	s.mux.ServeHTTP(w, r)
 }
 
 func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {

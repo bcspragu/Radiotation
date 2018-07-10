@@ -32,6 +32,7 @@ type Image struct {
 }
 
 type TrackList struct {
-	Tracks    []Track
-	NextIndex int
+	Tracks        []Track
+	QueueTrackIDs []string
+	NextIndex     int
 }
