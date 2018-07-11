@@ -41,13 +41,16 @@ var (
 	getFirstQueueTrackStmt    = `SELECT id FROM QueueTracks WHERE previous_id IS NULL AND room_id = ? AND user_id = ?`
 	setQueueTrackPreviousStmt = `UPDATE QueueTracks SET previous_id = ? WHERE id = ?`
 	setQueueTrackNextStmt     = `UPDATE QueueTracks SET next_id = ? WHERE id = ?`
+	setQueueTrackPlayedStmt   = `UPDATE QueueTracks SET played = 1 WHERE id = ?`
 	removeQueueTrackStmt      = `DELETE FROM QueueTracks WHERE id = ?`
-	getTracksStmt             = `SELECT QueueTracks.id, previous_id, next_id, track FROM QueueTracks
+	getTracksStmt             = `SELECT QueueTracks.id, previous_id, next_id, played, track FROM QueueTracks
 		JOIN Tracks
 		ON QueueTracks.track_id = Tracks.id
 		WHERE room_id = ? AND user_id = ?`
-	nextTrackStmt = `SELECT track_id, next_id FROM QueueTracks
-	WHERE id = (SELECT next_queue_track_id FROM Queues WHERE room_id = ? AND user_id = ?)`
+	nextTrackStmt = `SELECT QueueTracks.id, track, next_id FROM QueueTracks
+	JOIN Tracks
+	ON QueueTracks.track_id = Tracks.id
+	WHERE QueueTracks.id = (SELECT next_queue_track_id FROM Queues WHERE room_id = ? AND user_id = ?)`
 
 	updateNextTrackStmt = `UPDATE Queues SET next_queue_track_id = ? WHERE room_id = ? AND user_id = ?`
 	addTrackStmt        = `INSERT OR IGNORE INTO Tracks (id, track) VALUES (?, ?)`
@@ -123,15 +126,10 @@ func loadTrackEntries(s scanner) ([]*db.TrackEntry, error) {
 	return tracks, nil
 }
 
-func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.TrackList, error) {
+func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]db.QueueTrack, error) {
 	var nextTrackID sql.NullString
 	if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID.String()).Scan(&nextTrackID); err != nil {
 		return nil, err
-	}
-
-	// If the queue isn't pointing at anything, there are no songs in the queue.
-	if !nextTrackID.Valid {
-		return &radio.TrackList{}, nil
 	}
 
 	suffix := ""
@@ -146,7 +144,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.Trac
 
 	rows, err := tx.Query(stmt, string(qID.RoomID), qID.UserID.String())
 	if err == sql.ErrNoRows {
-		return &radio.TrackList{}, nil
+		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -157,6 +155,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.Trac
 		previousID sql.NullString
 		nextID     sql.NullString
 		track      radio.Track
+		played     bool
 	}
 
 	var first string
@@ -167,7 +166,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.Trac
 			trackBytes []byte
 			te         trackEntry
 		)
-		if err := rows.Scan(&te.qtID, &te.previousID, &te.nextID, &trackBytes); err != nil {
+		if err := rows.Scan(&te.qtID, &te.previousID, &te.nextID, &te.played, &trackBytes); err != nil {
 			return nil, err
 		}
 
@@ -195,8 +194,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.Trac
 	}
 
 	var (
-		tracks []radio.Track
-		qtIDs  []string
+		tracks []db.QueueTrack
 	)
 
 	current := first
@@ -212,8 +210,11 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.Trac
 			return nil, fmt.Errorf("missing link for ID %q", current)
 		}
 
-		tracks = append(tracks, te.track)
-		qtIDs = append(qtIDs, te.qtID)
+		tracks = append(tracks, db.QueueTrack{
+			ID:     te.qtID,
+			Played: te.played,
+			Track:  te.track,
+		})
 
 		// We're at the end of the chain.
 		if !te.nextID.Valid {
@@ -228,7 +229,11 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) (*radio.Trac
 		return nil, fmt.Errorf("%d tracks, %d links, should be the same", len(tracks), len(links))
 	}
 
-	return &radio.TrackList{Tracks: tracks, QueueTrackIDs: qtIDs, NextIndex: idx}, nil
+	// Keep around the index of the next song in case we need it in the future.
+	// TODO: Remove this, once the API has stabilized.
+	_ = idx
+
+	return tracks, nil
 }
 
 func loadUsers(tx *sql.Tx, rid db.RoomID) ([]*db.User, error) {
@@ -283,9 +288,9 @@ func loadUser(s scanner) (*db.User, error) {
 	}, nil
 }
 
-func loadRotator(s scanner) (db.Rotator, error) {
+func loadRotator(tx *sql.Tx, rID db.RoomID) (db.Rotator, error) {
 	var rBytes []byte
-	if err := s.Scan(&rBytes); err != nil {
+	if err := tx.QueryRow(getRotatorStmt, string(rID)).Scan(&rBytes); err != nil {
 		return nil, err
 	}
 
@@ -333,11 +338,11 @@ func (s *DB) Room(rid db.RoomID) (*db.Room, error) {
 	return res.room, nil
 }
 
-func (s *DB) NextTrack(rid db.RoomID) (*db.User, string, error) {
+func (s *DB) NextTrack(rID db.RoomID) (*db.User, radio.Track, error) {
 	type result struct {
-		user    *db.User
-		trackID string
-		err     error
+		user  *db.User
+		track radio.Track
+		err   error
 	}
 	tChan := make(chan *result)
 	s.dbChan <- func(sdb *sql.DB) {
@@ -348,13 +353,13 @@ func (s *DB) NextTrack(rid db.RoomID) (*db.User, string, error) {
 		}
 		defer tx.Rollback()
 
-		rot, err := loadRotator(tx.QueryRow(getRotatorStmt, string(rid)))
+		rot, err := loadRotator(tx, rID)
 		if err != nil {
 			tChan <- &result{err: err}
 			return
 		}
 
-		users, err := loadUsers(tx, rid)
+		users, err := loadUsers(tx, rID)
 		if err != nil {
 			tChan <- &result{err: err}
 			return
@@ -375,10 +380,11 @@ func (s *DB) NextTrack(rid db.RoomID) (*db.User, string, error) {
 			}
 
 			var (
-				trackID string
-				nextID  sql.NullString
+				qtID       string
+				trackBytes []byte
+				nextID     sql.NullString
 			)
-			err := tx.QueryRow(nextTrackStmt, string(rid), u.ID.String()).Scan(&trackID, &nextID)
+			err := tx.QueryRow(nextTrackStmt, string(rID), u.ID.String()).Scan(&qtID, &trackBytes, &nextID)
 			if err == sql.ErrNoRows {
 				continue
 			} else if err != nil {
@@ -386,13 +392,20 @@ func (s *DB) NextTrack(rid db.RoomID) (*db.User, string, error) {
 				return
 			}
 
-			// next_queue_track_id, room_id, user_id
-			args := []interface{}{nil, string(rid), u.ID.String()}
-			if nextID.Valid {
-				args[0] = nextID.String
+			var track radio.Track
+			if err := gob.NewDecoder(bytes.NewReader(trackBytes)).Decode(&track); err != nil {
+				tChan <- &result{err: err}
+				return
 			}
 
-			if _, err := tx.Exec(updateNextTrackStmt, args...); err != nil {
+			// Update our next track, because we're taking this one.
+			// next_queue_track_id, room_id, user_id
+			if _, err := tx.Exec(updateNextTrackStmt, nextID, string(rID), u.ID.String()); err != nil {
+				tChan <- &result{err: err}
+				return
+			}
+
+			if _, err := tx.Exec(setQueueTrackPlayedStmt, qtID); err != nil {
 				tChan <- &result{err: err}
 				return
 			}
@@ -405,7 +418,7 @@ func (s *DB) NextTrack(rid db.RoomID) (*db.User, string, error) {
 				return
 			}
 
-			if _, err := tx.Exec(updateRotatorStmt, rBytes, string(rid)); err != nil {
+			if _, err := tx.Exec(updateRotatorStmt, rBytes, string(rID)); err != nil {
 				tChan <- &result{err: err}
 				return
 			}
@@ -414,16 +427,16 @@ func (s *DB) NextTrack(rid db.RoomID) (*db.User, string, error) {
 				tChan <- &result{err: err}
 				return
 			}
-			tChan <- &result{user: u, trackID: trackID}
+			tChan <- &result{user: u, track: track}
 			return
 		}
 		tChan <- &result{err: db.ErrNoTracksInQueue}
 	}
 	res := <-tChan
 	if res.err != nil {
-		return nil, "", res.err
+		return nil, radio.Track{}, res.err
 	}
-	return res.user, res.trackID, nil
+	return res.user, res.track, nil
 }
 
 func (s *DB) SearchRooms(q string) ([]*db.Room, error) {
@@ -543,25 +556,17 @@ func (s *DB) AddUserToRoom(rid db.RoomID, uid db.UserID) error {
 			return
 		}
 
-		users, err := loadUsers(tx, rid)
-		if err != nil {
+		if err := addToRotator(tx, rid); err != nil {
 			errChan <- err
 			return
-		}
-
-		if len(users) == 1 {
-			if err := startRotator(tx, rid); err != nil {
-				errChan <- err
-				return
-			}
 		}
 		errChan <- tx.Commit()
 	}
 	return <-errChan
 }
 
-func startRotator(tx *sql.Tx, rid db.RoomID) error {
-	rot, err := loadRotator(tx.QueryRow(getRotatorStmt, string(rid)))
+func addToRotator(tx *sql.Tx, rID db.RoomID) error {
+	rot, err := loadRotator(tx, rID)
 	if err != nil {
 		return err
 	}
@@ -570,14 +575,8 @@ func startRotator(tx *sql.Tx, rid db.RoomID) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(updateRotatorStmt, rBytes, string(rid))
+	_, err = tx.Exec(updateRotatorStmt, rBytes, string(rID))
 	return err
-}
-
-func tracksBytes(tracks []radio.Track) ([]byte, error) {
-	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(tracks)
-	return buf.Bytes(), err
 }
 
 func trackEntryBytes(entries []*db.TrackEntry) ([]byte, error) {
@@ -645,9 +644,9 @@ func (s *DB) AddUser(user *db.User) error {
 	return <-errChan
 }
 
-func (s *DB) TrackList(qID db.QueueID, qo *db.QueueOptions) (*radio.TrackList, error) {
+func (s *DB) Tracks(qID db.QueueID, qo *db.QueueOptions) ([]db.QueueTrack, error) {
 	type result struct {
-		tl  *radio.TrackList
+		qts []db.QueueTrack
 		err error
 	}
 
@@ -660,7 +659,7 @@ func (s *DB) TrackList(qID db.QueueID, qo *db.QueueOptions) (*radio.TrackList, e
 		}
 		defer tx.Rollback()
 
-		tl, err := loadTrackList(tx, qID, qo)
+		qts, err := loadTrackList(tx, qID, qo)
 		if err != nil {
 			qChan <- &result{err: err}
 			return
@@ -670,7 +669,7 @@ func (s *DB) TrackList(qID db.QueueID, qo *db.QueueOptions) (*radio.TrackList, e
 			qChan <- &result{err: err}
 			return
 		}
-		qChan <- &result{tl: tl}
+		qChan <- &result{qts: qts}
 	}
 	res := <-qChan
 	if res.err == sql.ErrNoRows {
@@ -679,22 +678,7 @@ func (s *DB) TrackList(qID db.QueueID, qo *db.QueueOptions) (*radio.TrackList, e
 	if res.err != nil {
 		return nil, fmt.Errorf("failed to load queue: %v", res.err)
 	}
-	return res.tl, nil
-}
-
-func queueIDFromString(qid string) (db.QueueID, error) {
-	idp := strings.SplitN(qid, ":", 2)
-	if len(idp) != 2 {
-		return db.QueueID{}, fmt.Errorf("malformed qid %q", qid)
-	}
-	uid, err := db.UserIDFromString(idp[1])
-	if err != nil {
-		return db.QueueID{}, err
-	}
-	return db.QueueID{
-		RoomID: db.RoomID(idp[0]),
-		UserID: uid,
-	}, nil
+	return res.qts, nil
 }
 
 // AddTrack adds a track after the given qtID. If a blank ID is given, the song
@@ -1000,6 +984,7 @@ func (s *DB) uniqueID(tx *sql.Tx) (db.RoomID, error) {
 }
 
 func (s *DB) Close() error {
+	close(s.doneChan)
 	return s.closeFn()
 }
 

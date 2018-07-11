@@ -35,7 +35,7 @@ func TestAddRoom(t *testing.T) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
-	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.Random})
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.RoundRobin})
 	if err != nil {
 		t.Errorf("AddRoom(): %v", err)
 	}
@@ -53,7 +53,7 @@ func TestAddRoom(t *testing.T) {
 		t.Errorf("ID = %q, want %q", r.ID, rID)
 	}
 
-	if r.RotatorType != db.Random {
+	if r.RotatorType != db.RoundRobin {
 		t.Errorf("RotatorType = %q, want \"Random\"", r.RotatorType)
 	}
 }
@@ -65,7 +65,7 @@ func TestSearchRooms(t *testing.T) {
 	rooms := []string{"Room One", "Room Two", "Another One", "Some Guy's Room"}
 
 	for _, name := range rooms {
-		if _, err := sdb.AddRoom(&db.Room{DisplayName: name, RotatorType: db.Random}); err != nil {
+		if _, err := sdb.AddRoom(&db.Room{DisplayName: name, RotatorType: db.RoundRobin}); err != nil {
 			t.Errorf("AddRoom(): %v", err)
 		}
 	}
@@ -106,7 +106,7 @@ func TestAddUserToRoom(t *testing.T) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
-	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.Random})
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.RoundRobin})
 	if err != nil {
 		t.Fatalf("AddRoom(): %v", err)
 	}
@@ -188,11 +188,11 @@ func TestUser(t *testing.T) {
 	}
 }
 
-func TestTrackList(t *testing.T) {
+func TestTracks(t *testing.T) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
-	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.Random})
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.RoundRobin})
 	if err != nil {
 		t.Fatalf("AddRoom(): %v", err)
 	}
@@ -214,47 +214,170 @@ func TestTrackList(t *testing.T) {
 		Name:    "Test Track1",
 		Artists: []radio.Artist{radio.Artist{Name: "Test Artist1"}},
 	}
+	if err := sdb.AddTrack(qID, track1, ""); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	ts, err := sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	if c := len(ts); c != 1 {
+		t.Fatalf("Got %d tracks, want %d", c, 1)
+	}
+
+	if diff := cmp.Diff(track1, ts[0].Track); diff != "" {
+		t.Errorf("Track (-want +got)\n%s", diff)
+	}
+
+	if ts[0].Played {
+		t.Error("Track was marked as played")
+	}
+
 	track2 := radio.Track{
 		ID:      "testID2",
 		Name:    "Test Track2",
 		Artists: []radio.Artist{radio.Artist{Name: "Test Artist2"}},
 	}
+	if err := sdb.AddTrack(qID, track2, ts[0].ID); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	ts, err = sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	if c := len(ts); c != 2 {
+		t.Fatalf("Got %d tracks, want %d", c, 2)
+	}
+
+	if diff := cmp.Diff(track1, ts[0].Track); diff != "" {
+		t.Errorf("Track #1 (-want +got)\n%s", diff)
+	}
+
+	if ts[0].Played {
+		t.Error("Track was marked as played")
+	}
+
+	if diff := cmp.Diff(track2, ts[1].Track); diff != "" {
+		t.Errorf("Track #2 (-want +got)\n%s", diff)
+	}
+
+	if ts[1].Played {
+		t.Error("Track was marked as played")
+	}
+}
+
+func TestNextTrackOneUser(t *testing.T) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.RoundRobin})
+	if err != nil {
+		t.Fatalf("AddRoom(): %v", err)
+	}
+
+	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	user := &db.User{ID: uID, First: "Test", Last: "Name"}
+
+	if err := sdb.AddUser(user); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	if err := sdb.AddUserToRoom(rID, uID); err != nil {
+		t.Fatalf("AddUserToRoom(): %v", err)
+	}
+
+	qID := db.QueueID{RoomID: rID, UserID: uID}
+	track1 := radio.Track{
+		ID:      "testID1",
+		Name:    "Test Track1",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist1"}},
+	}
 	if err := sdb.AddTrack(qID, track1, ""); err != nil {
 		t.Fatalf("AddTrack(): %v", err)
 	}
 
-	tl, err := sdb.TrackList(qID, &db.QueueOptions{Type: db.AllTracks})
+	ts, err := sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
 	if err != nil {
-		t.Fatalf("TrackList(): %v", err)
+		t.Fatalf("Tracks(): %v", err)
 	}
 
-	if c := len(tl.Tracks); c != 1 {
-		t.Fatalf("Got %d tracks in track list, want %d", c, 1)
+	track2 := radio.Track{
+		ID:      "testID2",
+		Name:    "Test Track2",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist2"}},
 	}
-
-	if diff := cmp.Diff(track1, tl.Tracks[0]); diff != "" {
-		t.Errorf("Track (-want +got)\n%s", diff)
-	}
-
-	if err := sdb.AddTrack(qID, track2, tl.QueueTrackIDs[0]); err != nil {
+	if err := sdb.AddTrack(qID, track2, ts[0].ID); err != nil {
 		t.Fatalf("AddTrack(): %v", err)
 	}
 
-	tl, err = sdb.TrackList(qID, &db.QueueOptions{Type: db.AllTracks})
+	// Pull the first track from the queue.
+	gotUser, gotTrack, err := sdb.NextTrack(rID)
 	if err != nil {
-		t.Fatalf("TrackList(): %v", err)
+		t.Fatalf("NextTrack(): %v", err)
 	}
 
-	if c := len(tl.Tracks); c != 2 {
-		t.Fatalf("Got %d tracks in track list, want %d", c, 2)
+	// Make sure we got the right/only user.
+	if diff := cmp.Diff(user, gotUser); diff != "" {
+		t.Errorf("User (-want +got)\n%s", diff)
 	}
 
-	if diff := cmp.Diff(track1, tl.Tracks[0]); diff != "" {
-		t.Errorf("Track #1 (-want +got)\n%s", diff)
+	// Make sure we got the first track.
+	if diff := cmp.Diff(track1, gotTrack); diff != "" {
+		t.Errorf("User (-want +got)\n%s", diff)
 	}
 
-	if diff := cmp.Diff(track2, tl.Tracks[1]); diff != "" {
-		t.Errorf("Track #2 (-want +got)\n%s", diff)
+	// Load our track list, make sure both tracks are still there and one is
+	// played.
+	ts, err = sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	if c := len(ts); c != 2 {
+		t.Fatalf("Got %d tracks, want %d", c, 2)
+	}
+
+	if !ts[0].Played {
+		t.Errorf("First track not played")
+	}
+
+	if ts[1].Played {
+		t.Errorf("Second track played")
+	}
+
+	// Pull the second track from the queue.
+	gotUser, gotTrack, err = sdb.NextTrack(rID)
+	if err != nil {
+		t.Fatalf("NextTrack(): %v", err)
+	}
+
+	if diff := cmp.Diff(user, gotUser); diff != "" {
+		t.Errorf("User (-want +got)\n%s", diff)
+	}
+
+	if diff := cmp.Diff(track2, gotTrack); diff != "" {
+		t.Errorf("User (-want +got)\n%s", diff)
+	}
+
+	ts, err = sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	if c := len(ts); c != 2 {
+		t.Fatalf("Got %d tracks, want %d", c, 2)
+	}
+
+	if !ts[0].Played {
+		t.Errorf("First track not played")
+	}
+
+	if !ts[1].Played {
+		t.Errorf("Second track not played")
 	}
 }
 

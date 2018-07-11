@@ -30,9 +30,3 @@ type Image struct {
 	Height int
 	URL    string
 }
-
-type TrackList struct {
-	Tracks        []Track
-	QueueTrackIDs []string
-	NextIndex     int
-}
