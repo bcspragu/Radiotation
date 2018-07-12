@@ -126,7 +126,7 @@ func loadTrackEntries(s scanner) ([]*db.TrackEntry, error) {
 	return tracks, nil
 }
 
-func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]db.QueueTrack, error) {
+func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]*db.QueueTrack, error) {
 	var nextTrackID sql.NullString
 	if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID.String()).Scan(&nextTrackID); err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]db.QueueT
 		qtID       string
 		previousID sql.NullString
 		nextID     sql.NullString
-		track      radio.Track
+		track      *radio.Track
 		played     bool
 	}
 
@@ -187,6 +187,10 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]db.QueueT
 		return nil, err
 	}
 
+	if len(links) == 0 {
+		return nil, nil
+	}
+
 	// If we have at least one song in the queue, we should have a pointer to it
 	// from the queue.
 	if first == "" {
@@ -194,7 +198,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]db.QueueT
 	}
 
 	var (
-		tracks []db.QueueTrack
+		tracks []*db.QueueTrack
 	)
 
 	current := first
@@ -210,7 +214,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]db.QueueT
 			return nil, fmt.Errorf("missing link for ID %q", current)
 		}
 
-		tracks = append(tracks, db.QueueTrack{
+		tracks = append(tracks, &db.QueueTrack{
 			ID:     te.qtID,
 			Played: te.played,
 			Track:  te.track,
@@ -338,7 +342,7 @@ func (s *DB) Room(rid db.RoomID) (*db.Room, error) {
 	return res.room, nil
 }
 
-func (s *DB) NextTrack(rID db.RoomID) (*db.User, radio.Track, error) {
+func (s *DB) NextTrack(rID db.RoomID) (*db.User, *radio.Track, error) {
 	type result struct {
 		user  *db.User
 		track radio.Track
@@ -434,9 +438,9 @@ func (s *DB) NextTrack(rID db.RoomID) (*db.User, radio.Track, error) {
 	}
 	res := <-tChan
 	if res.err != nil {
-		return nil, radio.Track{}, res.err
+		return nil, nil, res.err
 	}
-	return res.user, res.track, nil
+	return res.user, &res.track, nil
 }
 
 func (s *DB) SearchRooms(q string) ([]*db.Room, error) {
@@ -644,9 +648,9 @@ func (s *DB) AddUser(user *db.User) error {
 	return <-errChan
 }
 
-func (s *DB) Tracks(qID db.QueueID, qo *db.QueueOptions) ([]db.QueueTrack, error) {
+func (s *DB) Tracks(qID db.QueueID, qo *db.QueueOptions) ([]*db.QueueTrack, error) {
 	type result struct {
-		qts []db.QueueTrack
+		qts []*db.QueueTrack
 		err error
 	}
 
@@ -683,7 +687,7 @@ func (s *DB) Tracks(qID db.QueueID, qo *db.QueueOptions) ([]db.QueueTrack, error
 
 // AddTrack adds a track after the given qtID. If a blank ID is given, the song
 // is added first. The song can't be added before a song that's already played.
-func (s *DB) AddTrack(qID db.QueueID, track radio.Track, afterQTID string) error {
+func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) error {
 	errChan := make(chan error)
 	s.dbChan <- func(sdb *sql.DB) {
 		tx, err := sdb.Begin()
@@ -766,7 +770,7 @@ func (s *DB) AddTrack(qID db.QueueID, track radio.Track, afterQTID string) error
 
 		// If there's no next track to be played, we need to set ourselves as the
 		// next track.
-		if !nextQueueTrackID.Valid {
+		if !nextQueueTrackID.Valid || (nextQueueTrackID.Valid && afterQTID == "") {
 			if _, err := tx.Exec(updateNextTrackStmt, id, string(qID.RoomID), qID.UserID.String()); err != nil {
 				errChan <- err
 				return
@@ -774,19 +778,15 @@ func (s *DB) AddTrack(qID db.QueueID, track radio.Track, afterQTID string) error
 		}
 
 		// If we have a track before this track, update it to point to this track.
-		if prevID.Valid {
-			if _, err := tx.Exec(setQueueTrackNextStmt, id, prevID.String); err != nil {
-				errChan <- err
-				return
-			}
+		if _, err := tx.Exec(setQueueTrackNextStmt, id, prevID); err != nil {
+			errChan <- err
+			return
 		}
 
 		// If we have a track after this track, update it to point to this track.
-		if nextID.Valid {
-			if _, err := tx.Exec(setQueueTrackPreviousStmt, id, nextID.String); err != nil {
-				errChan <- err
-				return
-			}
+		if _, err := tx.Exec(setQueueTrackPreviousStmt, id, nextID); err != nil {
+			errChan <- err
+			return
 		}
 
 		errChan <- tx.Commit()
@@ -813,7 +813,7 @@ func loadQueueTrack(tx *sql.Tx, id string) (*queueTrack, error) {
 // RemoveTrack remove a given track from a queue. To do it, we find the
 // QueueTrack in question, get it's previous/next tracks, and update their
 // pointers to each other.
-func (s *DB) RemoveTrack(qid db.QueueID, qtID string) error {
+func (s *DB) RemoveTrack(qID db.QueueID, qtID string) error {
 	errChan := make(chan error)
 	s.dbChan <- func(sdb *sql.DB) {
 		tx, err := sdb.Begin()
@@ -839,34 +839,38 @@ func (s *DB) RemoveTrack(qid db.QueueID, qtID string) error {
 			return
 		}
 
-		// If there was a previous song, we need to update it to point to the next
-		// song, or nothing.
-		if prevID.Valid {
-			// If the song we're removing was the last song.
-			var arg interface{} = nil
-			// If the song we're removing wasn't the last song
-			if nextID.Valid {
-				arg = nextID.String
-			}
-			if _, err := tx.Exec(setQueueTrackNextStmt, arg, prevID.String); err != nil {
+		var nextQueueTrackID sql.NullString
+		if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID.String()).Scan(&nextQueueTrackID); err == sql.ErrNoRows {
+			errChan <- err
+			return
+		}
+
+		if !nextQueueTrackID.Valid {
+			errChan <- errors.New("something is broken, can't remove a track that exists if it hasn't been played but there's no next_queue_track_id")
+			return
+		}
+
+		// The song we're removing was the next up, need to set it to the next
+		// track.
+		if nextQueueTrackID.String == qtID {
+			if _, err := tx.Exec(updateNextTrackStmt, nextID, string(qID.RoomID), qID.UserID.String()); err != nil {
 				errChan <- err
 				return
 			}
 		}
 
+		// If there was a previous song, we need to update it to point to the next
+		// song, or nothing.
+		if _, err := tx.Exec(setQueueTrackNextStmt, nextID, prevID); err != nil {
+			errChan <- err
+			return
+		}
+
 		// If there was a next song, we need to update it to point to the previous
 		// song, or nothing.
-		if nextID.Valid {
-			// If the song we're removing was the first song.
-			var arg interface{} = nil
-			// If the song we're removing wasn't the last song
-			if prevID.Valid {
-				arg = prevID.String
-			}
-			if _, err := tx.Exec(setQueueTrackPreviousStmt, arg, nextID.String); err != nil {
-				errChan <- err
-				return
-			}
+		if _, err := tx.Exec(setQueueTrackPreviousStmt, prevID, nextID); err != nil {
+			errChan <- err
+			return
 		}
 
 		if _, err := tx.Exec(removeQueueTrackStmt, qtID); err != nil {

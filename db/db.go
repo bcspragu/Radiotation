@@ -30,7 +30,7 @@ type TrackEntry struct {
 
 type RoomDB interface {
 	Room(RoomID) (*Room, error)
-	NextTrack(RoomID) (*User, radio.Track, error)
+	NextTrack(RoomID) (*User, *radio.Track, error)
 
 	SearchRooms(string) ([]*Room, error)
 
@@ -61,12 +61,12 @@ type QueueTrack struct {
 	ID     string
 	Played bool
 
-	Track radio.Track
+	Track *radio.Track
 }
 
 type QueueDB interface {
-	Tracks(QueueID, *QueueOptions) ([]QueueTrack, error)
-	AddTrack(QueueID, radio.Track, string) error
+	Tracks(QueueID, *QueueOptions) ([]*QueueTrack, error)
+	AddTrack(QueueID, *radio.Track, string) error
 	RemoveTrack(QueueID, string) error
 }
 
