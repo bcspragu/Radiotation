@@ -639,7 +639,92 @@ func TestRemoveTrack(t *testing.T) {
 	trackCount(t, ts, 0)
 }
 
+func TestHistory(t *testing.T) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.RoundRobin})
+	if err != nil {
+		t.Fatalf("AddRoom(): %v", err)
+	}
+
+	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	wantUser := &db.User{ID: uID, First: "Test", Last: "Name"}
+	if err := sdb.AddUser(wantUser); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	if err := sdb.AddUserToRoom(rID, uID); err != nil {
+		t.Fatalf("AddUserToRoom(): %v", err)
+	}
+
+	var tracks []*db.TrackEntry
+	for i := 0; i < 3; i++ {
+		tracks = append(tracks, &db.TrackEntry{
+			UserID: uID,
+			Track: radio.Track{
+				ID:      fmt.Sprintf("testID%d", i),
+				Name:    fmt.Sprintf("Test Track %d", i),
+				Artists: []radio.Artist{radio.Artist{Name: fmt.Sprintf("Test Artist %d", i)}},
+			},
+		})
+	}
+
+	tes, err := sdb.History(rID)
+	if err != nil {
+		t.Fatalf("History(): %v: ", err)
+	}
+
+	trackEntryCount(t, tes, 0)
+
+	if err := sdb.AddToHistory(rID, tracks[0]); err != nil {
+		t.Fatalf("AddToHistory(): %v", err)
+	}
+
+	tes, err = sdb.History(rID)
+	if err != nil {
+		t.Fatalf("History(): %v: ", err)
+	}
+
+	trackEntryCount(t, tes, 1)
+	trackEntryEquals(t, tes[0], tracks[0])
+
+	if err := sdb.AddToHistory(rID, tracks[1]); err != nil {
+		t.Fatalf("AddToHistory(): %v", err)
+	}
+
+	tes, err = sdb.History(rID)
+	if err != nil {
+		t.Fatalf("History(): %v: ", err)
+	}
+
+	trackEntryCount(t, tes, 2)
+	trackEntryEquals(t, tes[0], tracks[0])
+	trackEntryEquals(t, tes[1], tracks[1])
+
+	if err := sdb.AddToHistory(rID, tracks[2]); err != nil {
+		t.Fatalf("AddToHistory(): %v", err)
+	}
+
+	tes, err = sdb.History(rID)
+	if err != nil {
+		t.Fatalf("History(): %v: ", err)
+	}
+
+	trackEntryCount(t, tes, 3)
+	trackEntryEquals(t, tes[0], tracks[0])
+	trackEntryEquals(t, tes[1], tracks[1])
+	trackEntryEquals(t, tes[2], tracks[2])
+}
+
 type closeFn func()
+
+func trackEntryCount(t *testing.T, ts []*db.TrackEntry, want int) {
+	t.Helper()
+	if got := len(ts); got != want {
+		t.Fatalf("Got %d tracks, want %d", got, want)
+	}
+}
 
 func trackCount(t *testing.T, ts []*db.QueueTrack, want int) {
 	t.Helper()
@@ -670,6 +755,13 @@ func userCount(t *testing.T, us []*db.User, want int) {
 }
 
 func trackEquals(t *testing.T, gotTrack, wantTrack *radio.Track) {
+	t.Helper()
+	if diff := cmp.Diff(wantTrack, gotTrack); diff != "" {
+		t.Errorf("Track (-want +got)\n%s", diff)
+	}
+}
+
+func trackEntryEquals(t *testing.T, gotTrack, wantTrack *db.TrackEntry) {
 	t.Helper()
 	if diff := cmp.Diff(wantTrack, gotTrack); diff != "" {
 		t.Errorf("Track (-want +got)\n%s", diff)
