@@ -15,3 +15,4 @@ cmd/goose/goose
 cmd/server/server
 cmd/server/config.prod
 sqldb/coverage.out
+db/coverage.out

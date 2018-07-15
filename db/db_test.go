@@ -1,4 +1,4 @@
-package sqldb
+package db_test
 
 import (
 	"fmt"
@@ -6,11 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/bcspragu/Radiotation/db"
+	"github.com/bcspragu/Radiotation/memdb"
 	"github.com/bcspragu/Radiotation/radio"
 	"github.com/bcspragu/Radiotation/rng"
+	"github.com/bcspragu/Radiotation/sqldb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pressly/goose"
 
@@ -19,6 +22,11 @@ import (
 )
 
 func TestRoomDoesntExist(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testRoomDoesntExist(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testRoomDoesntExist(t, newMemDB) })
+}
+
+func testRoomDoesntExist(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -33,6 +41,11 @@ func TestRoomDoesntExist(t *testing.T) {
 }
 
 func TestAddRoom(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testAddRoom(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testAddRoom(t, newMemDB) })
+}
+
+func testAddRoom(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -60,6 +73,11 @@ func TestAddRoom(t *testing.T) {
 }
 
 func TestSearchRooms(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testSearchRooms(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testSearchRooms(t, newMemDB) })
+}
+
+func testSearchRooms(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -104,6 +122,11 @@ func TestSearchRooms(t *testing.T) {
 }
 
 func TestAddUserToRoom(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testAddUserToRoom(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testAddUserToRoom(t, newMemDB) })
+}
+
+func testAddUserToRoom(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -161,6 +184,11 @@ func TestAddUserToRoom(t *testing.T) {
 }
 
 func TestUser(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testUser(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testUser(t, newMemDB) })
+}
+
+func testUser(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -179,6 +207,11 @@ func TestUser(t *testing.T) {
 }
 
 func TestTracks(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testTracks(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testTracks(t, newMemDB) })
+}
+
+func testTracks(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -239,6 +272,11 @@ func TestTracks(t *testing.T) {
 }
 
 func TestNextTrackOneUser(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testNextTrackOneUser(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testNextTrackOneUser(t, newMemDB) })
+}
+
+func testNextTrackOneUser(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -333,6 +371,11 @@ func TestNextTrackOneUser(t *testing.T) {
 }
 
 func TestNextTrackMultipleUsers(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testNextTrackMultipleUsers(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testNextTrackMultipleUsers(t, newMemDB) })
+}
+
+func testNextTrackMultipleUsers(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -413,6 +456,11 @@ func TestNextTrackMultipleUsers(t *testing.T) {
 }
 
 func TestAddTrack(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testAddTrack(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testAddTrack(t, newMemDB) })
+}
+
+func testAddTrack(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -505,6 +553,11 @@ func TestAddTrack(t *testing.T) {
 }
 
 func TestRemoveTrack(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testRemoveTrack(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testRemoveTrack(t, newMemDB) })
+}
+
+func testRemoveTrack(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -640,6 +693,11 @@ func TestRemoveTrack(t *testing.T) {
 }
 
 func TestHistory(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testHistory(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testHistory(t, newMemDB) })
+}
+
+func testHistory(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
@@ -775,20 +833,30 @@ func userEquals(t *testing.T, gotUser, wantUser *db.User) {
 	}
 }
 
-func newDB(t *testing.T) (db.DB, closeFn) {
-	name, err := ioutil.TempDir("", t.Name())
+func newMemDB(t *testing.T) (db.DB, closeFn) {
+	db, err := memdb.New(rng.NewSource(0))
+	if err != nil {
+		t.Fatalf("failed to create memdb: %v", err)
+	}
+
+	return db, func() {}
+}
+
+func newSQLDB(t *testing.T) (db.DB, closeFn) {
+	prefix := strings.Replace(t.Name(), "/", "", -1)
+	name, err := ioutil.TempDir("", prefix)
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
-	sdb, err := New(filepath.Join(name, t.Name()+".db"), rng.NewSource(0))
+	sdb, err := sqldb.New(filepath.Join(name, prefix+".db"), rng.NewSource(0))
 	if err != nil {
 		t.Fatalf("failed to create sqldb: %v", err)
 	}
 
 	goose.SetLogger(&testLogger{t: t, log: false})
 	goose.SetDialect("sqlite3")
-	if err := goose.Up(sdb.sdb, "migrations"); err != nil {
+	if err := goose.Up(sdb.DB, "../sqldb/migrations"); err != nil {
 		t.Fatalf("failed to apply migrations to db: %v", err)
 	}
 

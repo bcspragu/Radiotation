@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"math/rand"
 
 	"github.com/bcspragu/Radiotation/radio"
 )
@@ -81,5 +82,26 @@ type DB interface {
 	UserDB
 	QueueDB
 	HistoryDB
-	Close() error
+}
+
+var trackLetters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func RandomTrackID(src rand.Source) string {
+	b := make([]byte, 64)
+	r := rand.New(src)
+	for i := range b {
+		b[i] = trackLetters[r.Intn(len(trackLetters))]
+	}
+	return string(b)
+}
+
+var letters = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func RandomID(src rand.Source) string {
+	b := make([]byte, 4)
+	r := rand.New(src)
+	for i := range b {
+		b[i] = letters[r.Intn(len(letters))]
+	}
+	return string(b)
 }

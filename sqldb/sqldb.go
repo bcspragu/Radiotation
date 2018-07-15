@@ -69,8 +69,7 @@ type DB struct {
 	doneChan chan struct{}
 	closeFn  func() error
 	src      rand.Source
-
-	sdb *sql.DB
+	DB       *sql.DB
 }
 
 // InitSQLiteDB creates a new *DB that is stored on disk as
@@ -87,8 +86,8 @@ func New(fn string, src rand.Source) (*DB, error) {
 		closeFn: func() error {
 			return sdb.Close()
 		},
+		DB:  sdb,
 		src: src,
-		sdb: sdb,
 	}
 	go db.run(sdb)
 	return db, nil
@@ -698,7 +697,7 @@ func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) erro
 		defer tx.Rollback()
 
 		var (
-			id     = s.randomTrackID()
+			id     = db.RandomTrackID(s.src)
 			prevID sql.NullString
 			nextID sql.NullString
 		)
@@ -971,7 +970,7 @@ func (s *DB) uniqueID(tx *sql.Tx) (db.RoomID, error) {
 	i := 0
 	var id string
 	for {
-		id = s.randomID()
+		id = db.RandomID(s.src)
 		var n int
 		if err := tx.QueryRow(roomExistsStmt, id).Scan(&n); err != nil {
 			return db.RoomID(""), err
@@ -1003,28 +1002,6 @@ func sqlInput(n int) string {
 // easier.
 func normalize(s string) string {
 	return strings.ToLower(s)
-}
-
-var trackLetters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-
-func (s *DB) randomTrackID() string {
-	b := make([]byte, 64)
-	r := rand.New(s.src)
-	for i := range b {
-		b[i] = trackLetters[r.Intn(len(trackLetters))]
-	}
-	return string(b)
-}
-
-var letters = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func (s *DB) randomID() string {
-	b := make([]byte, 4)
-	r := rand.New(s.src)
-	for i := range b {
-		b[i] = letters[r.Intn(len(letters))]
-	}
-	return string(b)
 }
 
 type CryptoRandSource struct{}
