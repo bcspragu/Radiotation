@@ -22,7 +22,7 @@ type QueueID struct {
 
 type TrackEntry struct {
 	UserID UserID
-	Track  radio.Track
+	Track  *radio.Track
 
 	// VetoedBy is only set if Vetoed is true.
 	Vetoed   bool

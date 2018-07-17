@@ -144,7 +144,7 @@ func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm 
 		return err
 	}
 
-	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, track, afterQTID); err != nil {
+	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, &track, afterQTID); err != nil {
 		log.Println(err)
 	}
 
@@ -173,17 +173,11 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, tID, err := s.roomDB.NextTrack(rm.ID)
+	u, t, err := s.roomDB.NextTrack(rm.ID)
 	if err == db.ErrNoTracksInQueue {
 		jsonErr(w, errors.New("No tracks to choose from"))
 		return
 	} else if err != nil {
-		jsonErr(w, err)
-		return
-	}
-
-	t, err := s.track(tID)
-	if err != nil {
 		jsonErr(w, err)
 		return
 	}
@@ -207,7 +201,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	type trackResponse struct {
 		Error   bool
 		Message string
-		Track   radio.Track
+		Track   *radio.Track
 	}
 
 	err = json.NewEncoder(w).Encode(trackResponse{
@@ -290,15 +284,10 @@ func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 		return err
 	}
 
-	nu, tID, err := s.roomDB.NextTrack(rm.ID)
+	nu, t, err := s.roomDB.NextTrack(rm.ID)
 	if err == db.ErrNoTracksInQueue {
 		return errors.New("No tracks left in queue")
 	} else if err != nil {
-		return err
-	}
-
-	t, err := s.track(tID)
-	if err != nil {
 		return err
 	}
 
@@ -356,7 +345,7 @@ func lastVeto(history []*db.TrackEntry, uid db.UserID) (songsSince int, veto boo
 }
 
 func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	tl, err := s.queueDB.TrackList(db.QueueID{
+	qts, err := s.queueDB.Tracks(db.QueueID{
 		RoomID: rm.ID,
 		UserID: u.ID,
 	}, &db.QueueOptions{Type: db.AllTracks})
@@ -375,10 +364,10 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 	}
 
 	tracksWithPlayed := []*trackWithPlayed{}
-	for i, t := range tl.Tracks {
+	for _, qt := range qts {
 		tracksWithPlayed = append(tracksWithPlayed, &trackWithPlayed{
-			Track:  t,
-			Played: i < tl.NextIndex,
+			Track:  *qt.Track,
+			Played: qt.Played,
 		})
 	}
 
@@ -396,7 +385,7 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm
 		return err
 	}
 
-	tl, err := s.queueDB.TrackList(db.QueueID{
+	qts, err := s.queueDB.Tracks(db.QueueID{
 		RoomID: rm.ID,
 		UserID: u.ID,
 	}, &db.QueueOptions{Type: db.PlayedOnly})
@@ -405,8 +394,8 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm
 	}
 
 	inQueue := make(map[string]bool)
-	for _, t := range tl.Tracks {
-		inQueue[t.ID] = true
+	for _, qt := range qts {
+		inQueue[qt.Track.ID] = true
 	}
 
 	type trackInQueue struct {
@@ -451,7 +440,7 @@ func (s *Srv) nowPlaying(rid db.RoomID) *radio.Track {
 	}
 
 	if len(ts) > 0 {
-		return &ts[len(ts)-1].Track
+		return ts[len(ts)-1].Track
 	}
 	return nil
 }

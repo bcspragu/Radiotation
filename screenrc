@@ -1,4 +1,4 @@
 split -v
-screen -t server cd cmd/server/ && go run ../../tasks/runner.go
+screen -t server cd cmd/server && ./run.sh
 focus
-screen -t frontend frontend/compile.sh
+screen -t frontend ./serve.sh
