@@ -1,12 +1,13 @@
 <template>
   <div id="app">
-    <header class="navbar">
-      <section class="navbar-section navbar-main">
-        <router-link :to="{ name: 'Home' }"><img class="logo" src="./assets/radiotation_logo.png"></router-link>
-        <div class="btn-header btn btn-link">{{title}}</div>
-      </section>
-      <section class="navbar-section"></section>
-    </header>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand">
+        <router-link :to="{ name: 'Home' }" class="navbar-item">
+          <img class="logo" src="./assets/radiotation_logo.png">
+          <span class="is-size-3 logo-title">Radiotation</span>
+        </router-link>
+      </div>
+    </nav>
     <router-view v-on:updateTitle="updateTitle" v-on:ajaxErr="handleError"/>
   </div>
 </template>
@@ -21,51 +22,19 @@ export default {
   },
   methods: {
     updateTitle (title) {
-      this.title = title
+      this.title = title;
     },
     handleError (data) {
-      if (data && data.NotLoggedIn) {
-        this.$router.push({name: 'Home', query: {redirect: this.$route.path}})
-        return
-      }
-      console.log(data)
+      // eslint-disable-next-line
+      console.log(data);
     }
   }
 }
 </script>
 
-<style>
-html, body, #app {
-  height: 100%;
-}
-</style>
-
 <style scoped>
-#app {
-  display: flex;
-  flex-direction: column;
-}
-
-.navbar {
-  background: #F8F9FA;
-  display: block;
-}
-
-.navbar-main {
-  max-width: 100%;
-}
-
-.logo {
-  width:auto;
-  height:auto;
-  max-height:40px;
-}
-
-.btn-header {
-  font-size: 16px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
+.logo-title {
+  margin-left: 1rem;
 }
 </style>
 

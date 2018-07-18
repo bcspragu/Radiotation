@@ -1,23 +1,23 @@
 <template>
-  <div class="container">
-    <div class="columns">
-      <div class="col-mx-auto col-6 col-sm-10 column instructions">
-        <h3>Instructions</h3>
-        <ol>
+  <div>
+    <div class="columns is-centered is-mobile">
+      <div class="column is-6 instructions">
+        <h1 class="is-size-3 has-text-centered">Instructions</h1>
+        <ol class="is-size-4">
           <li>Log in with your Google Account.</li>
           <li>Join an existing room with your friends or create a new one.</li>
           <li>Search for your favorite songs, and add them to your playlist.</li>
           <li>Open up the Radiotation app for Android and start playing it back.</li>
         </ol>
-        <p>
+        <p class="is-size-5">
           Radiotation will handle the rest, giving everyone equal playtime in the
           car (as long as everyone has added music!)
         </p>
       </div>
     </div>
-    <div v-if="user" class="columns">
-      <div v-if="rooms.length > 0" class="column col-6 col-sm-12">
-        <h2 class="text-center">Join Room</h2>
+    <div class="columns">
+      <div class="column is-12 is-6-mobile">
+        <h1 class="has-text-centered is-size-3">Join Room</h1>
         <div class="form-horizontal">
           <div class="form-group">
             <div class="col-3">
@@ -40,15 +40,14 @@
         <h2 class="text-center">New Room</h2>
         <room-form></room-form>
       </div>
-    </div>
-    <div v-else class="text-center">
-      <div id="g-signin"></div>
+      <sign-in-button @done="onUserLoggedIn"/>
     </div>
   </div>
 </template>
 
 <script>
 import RoomForm from '@/components/RoomForm.vue'
+import SignIn from '@/components/SignIn.vue'
 
 export default {
   name: 'Home',
@@ -60,7 +59,8 @@ export default {
     }
   },
   components: {
-    'room-form': RoomForm
+    'room-form': RoomForm,
+    'sign-in-button': SignIn
   },
   created () {
     this.$emit('updateTitle', 'Radiotation')
@@ -70,24 +70,13 @@ export default {
     fetchUser () {
       var vue = this
       vue.$http.get('user').then(response => {
-        var data = JSON.parse(response.body)
-        if (data.Error) {
-          // eslint-disable-next-line
-          /*
-          gapi.signin2.render('g-signin', {
-            'scope': 'profile email',
-            'width': 240,
-            'height': 50,
-            'onsuccess': vue.onSignIn,
-            'onfailure': vue.onFailure
-          })
-          */
-        } else {
+        var data = response.body;
+        if (!data.Error) {
           vue.user = data
         }
       })
     },
-    onSignIn (googleUser) {
+    onUserLoggedIn (googleUser) {
       if (this.user) {
         if (this.redirect) {
           this.$router.push({path: this.redirect})
