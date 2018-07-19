@@ -1,7 +1,7 @@
 <template>
   <div>
-    <div class="columns is-centered is-mobile">
-      <div class="column is-6 instructions">
+    <div class="columns is-centered">
+      <div class="column is-6 is-10-mobile is-offset-1-mobile instructions">
         <h1 class="is-size-3 has-text-centered">Instructions</h1>
         <ol class="is-size-4">
           <li>Log in with your Google Account.</li>
@@ -15,31 +15,28 @@
         </p>
       </div>
     </div>
-    <div class="columns">
-      <div class="column is-12 is-6-mobile">
+    <div class="columns is-centered">
+      <div class="column is-6">
         <h1 class="has-text-centered is-size-3">Join Room</h1>
-        <div class="form-horizontal">
-          <div class="form-group">
-            <div class="col-3">
-              <label for="room" class="form-label">Room Code</label>
-            </div>
-            <div class="col-9">
-              <input 
-                autocomplete="off"
-                v-on:keyup.enter="joinRoom"
-                type="text"
-                v-model="roomCode"
-                name="room-code"
-                class="form-input"
-                placeholder="Room Code">
-            </div>
-          </div>
-        </div>
+        <b-field label="Room Code">
+          <b-input
+            autocomplete="off"
+            v-on:keyup.enter="joinRoom"
+            type="text"
+            v-model="roomCode"
+            name="room-code"
+            class="form-input"
+            placeholder="Room Code"></b-input>
+        </b-field>
       </div>
-      <div class="column col-6 col-sm-12">
-        <h2 class="text-center">New Room</h2>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-6">
+        <h1 class="has-text-centered is-size-3">New Room</h1>
         <room-form></room-form>
       </div>
+    </div>
+    <div class="columns">
       <sign-in-button @done="onUserLoggedIn"/>
     </div>
   </div>

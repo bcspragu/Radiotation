@@ -1,20 +1,15 @@
 <template>
-  <div class="form-horizontal">
-    <div class="form-group">
-      <div class="col-3">
-        <label for="room" class="form-label">Room Name</label>
-      </div>
-      <div class="col-9">
-        <input 
-          autocomplete="off"
-          v-on:keyup.enter="createRoom"
-          type="text"
-          v-model="roomName"
-          name="room"
-          class="form-input"
-          placeholder="Room Name">
-      </div>
-    </div>
+  <div>
+    <b-field label="Room Name">
+      <b-input
+        autocomplete="off"
+        v-on:keyup.enter="createRoom"
+        type="text"
+        v-model="roomName"
+        name="room"
+        class="form-input"
+        placeholder="Room Name"></b-input>
+    </b-field>
     <div class="form-group">
       <div class="col-3">
         <label for="shuffleOrder" class="form-label">Shuffle Order</label>
