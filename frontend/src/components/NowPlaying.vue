@@ -55,7 +55,7 @@ export default {
     veto () {
       var url = `/room/${this.roomId}/veto`
       this.$http.post(url, {}, {emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
+        var data = response.body
         if (data.NotLoggedIn || data.RoomNotFound) {
           this.$emit('ajaxErr', data)
           return

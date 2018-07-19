@@ -16,17 +16,42 @@
       </div>
     </div>
     <div class="columns is-centered">
-      <div class="column is-6">
+      <div class="column is-4">
         <h1 class="has-text-centered is-size-3">Join Room</h1>
-        <b-field label="Room Code">
-          <b-input
-            autocomplete="off"
-            v-on:keyup.enter="joinRoom"
-            type="text"
-            v-model="roomCode"
-            name="room-code"
-            class="form-input"
-            placeholder="Room Code"></b-input>
+        <b-field grouped>
+          <b-field expanded label="Room Code">
+            <b-input
+              autocomplete="off"
+              v-on:keyup.enter="joinRoom"
+              type="text"
+              v-model="roomCode"
+              name="room-code"
+              placeholder="Room Code"></b-input>
+          </b-field>
+          <b-field class="align-button" label=".">
+            <p class="control">
+              <button v-on:click="joinRoom" class="button is-primary">Join</button>
+            </p>
+          </b-field>
+        </b-field>
+      </div>
+      <div class="column is-4 is-offset-1">
+        <h1 class="has-text-centered is-size-3">Search for Room</h1>
+        <b-field grouped>
+          <b-field expanded label="Search">
+            <b-input
+              autocomplete="off"
+              v-on:keyup.enter="searchForRoom"
+              type="text"
+              v-model="searchTerm"
+              name="search-room"
+              placeholder="Search"></b-input>
+          </b-field>
+          <b-field class="align-button" label=".">
+            <p class="control">
+              <button v-on:click="searchForRoom" class="button is-primary">Search</button>
+            </p>
+          </b-field>
         </b-field>
       </div>
     </div>
@@ -36,8 +61,10 @@
         <room-form></room-form>
       </div>
     </div>
-    <div class="columns">
-      <sign-in-button @done="onUserLoggedIn"/>
+    <div class="columns is-centered">
+      <div class="column is-2">
+        <sign-in-button class="is-large is-fullwidth" @done="onUserLoggedIn"/>
+      </div>
     </div>
   </div>
 </template>
@@ -52,6 +79,7 @@ export default {
     return {
       user: null,
       roomCode: '',
+      searchTerm: '',
       redirect: this.$route.query.redirect
     }
   },
@@ -90,6 +118,9 @@ export default {
       })
     },
     joinRoom () {
+      this.$router.push({name: 'Room', params: {id: this.roomCode}})
+    },
+    searchForRoom () {
       this.$router.push({name: 'Room', params: {id: this.roomCode}})
     }
   }

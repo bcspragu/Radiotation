@@ -64,10 +64,10 @@ export default {
   },
   methods: {
     removeSong (track, index) {
-      var url = `/room/${this.id}/remove`
+      var url = `room/${this.id}/remove`
       var data = {index: index, id: track.ID}
       this.$http.post(url, data, {emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
+        var data = response.body;
         if (data.Error) {
           this.$emit('ajaxErr', data)
           return
@@ -76,8 +76,8 @@ export default {
       })
     },
     fetchRoom () {
-      this.$http.get(`/room/${this.id}`).then(response => {
-        var data = JSON.parse(response.body)
+      this.$http.get(`room/${this.id}`).then(response => {
+        var data = response.body
         if (data.RoomNotFound) {
           this.$router.push({name: 'CreateRoom', params: {id: this.id}})
           return
@@ -112,7 +112,14 @@ export default {
     },
     connectWebSocket () {
       if (window['WebSocket']) {
-        var conn = new WebSocket(`${window.webSocketAddr}/ws/room/${this.id}`)
+        var loc = window.location
+        var newURI = "ws:"
+        if (loc.protocol === "https:") {
+            newURI = "wss:"
+        }
+        newURI += "//" + loc.host
+        newURI += loc.pathname + `/api/ws/room/${this.id}`
+        var conn = new WebSocket(newURI)
         conn.onclose = (evt) => {
           console.log(evt)
         }

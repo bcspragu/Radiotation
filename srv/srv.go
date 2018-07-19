@@ -15,6 +15,7 @@ import (
 	"github.com/bcspragu/Radiotation/hub"
 	"github.com/bcspragu/Radiotation/radio"
 	oidc "github.com/coreos/go-oidc"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/websocket"
 )
@@ -33,7 +34,7 @@ var (
 type Srv struct {
 	sc  *securecookie.SecureCookie
 	h   *hub.Hub
-	mux *http.ServeMux
+	mux *mux.Router
 	fcm *fcm.FcmClient
 	cfg *Config
 
@@ -85,41 +86,33 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 	return s, nil
 }
 
-func (s *Srv) initMux() *http.ServeMux {
-	mux := http.NewServeMux()
-	// GET
-	mux.HandleFunc("/api/user", s.serveUser)
+func (s *Srv) initMux() *mux.Router {
+	m := mux.NewRouter()
+	m.HandleFunc("/api/user", s.serveUser).Methods("GET")
+	m.HandleFunc("/api/search", s.serveRoomSearch).Methods("GET")
 	// Verifying login and storing a cookie.
-	// POST
-	mux.HandleFunc("/api/verifyToken", s.serveVerifyToken)
+	m.HandleFunc("/api/verifyToken", s.serveVerifyToken).Methods("POST")
 	// Load room information for a user.
-	// GET
-	mux.HandleFunc("/api/room/{id}", s.withRoomAndUser(s.serveRoom))
+	m.HandleFunc("/api/room/{id}", s.withRoomAndUser(s.serveRoom)).Methods("GET")
 	// Search for a song.
-	// GET
-	mux.HandleFunc("/api/room/{id}/search", s.withRoomAndUser(s.serveSearch))
+	m.HandleFunc("/api/room/{id}/search", s.withRoomAndUser(s.serveSearch)).Methods("GET")
 
 	// Get the next song. This should be a POST action, but its GET for
 	// debugging.
-	mux.HandleFunc("/api/room/{id}/pop", s.serveSong)
-	// POST
-	mux.HandleFunc("/api/room/{id}/veto", s.withRoomAndUser(s.serveVeto))
+	m.HandleFunc("/api/room/{id}/pop", s.serveSong).Methods("GET")
+	m.HandleFunc("/api/room/{id}/veto", s.withRoomAndUser(s.serveVeto)).Methods("POST")
 
 	// Create a room.
-	// POST
-	mux.HandleFunc("/api/room", s.serveCreateRoom)
+	m.HandleFunc("/api/room", s.serveCreateRoom).Methods("POST")
 	// Add a song to a queue.
-	// POST
-	mux.HandleFunc("/api/room/{id}/add", s.withRoomAndUser(s.addToQueue))
+	m.HandleFunc("/api/room/{id}/add", s.withRoomAndUser(s.addToQueue)).Methods("POST")
 	// Remove a song from a queue.
-	// POST
-	mux.HandleFunc("/api/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue))
+	m.HandleFunc("/api/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue)).Methods("POST")
 
 	// WebSocket handler for new songs.
-	// GET
-	mux.HandleFunc("/api/ws/room/{id}", s.serveData)
+	m.HandleFunc("/api/ws/room/{id}", s.serveData).Methods("GET")
 
-	return mux
+	return m
 }
 
 func (s *Srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -243,20 +236,21 @@ func rotatorTypeByName(name string) db.RotatorType {
 	return typ
 }
 
-func (s *Srv) serveRoomSearch(w http.ResponseWriter, r *http.Request) error {
+func (s *Srv) serveRoomSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.FormValue("query")
 	if q == "" {
-		return errors.New("No query given")
+		jsonErr(w, errors.New("No query given"))
+		return
 	}
 
 	rooms, err := s.roomDB.SearchRooms(q)
 	if err != nil {
 		jsonErr(w, err)
-		return nil
+		return
 	}
 
 	jsonResp(w, rooms)
-	return nil
+	return
 }
 
 func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {

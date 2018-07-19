@@ -1,30 +1,29 @@
 <template>
   <div>
-    <b-field label="Room Name">
-      <b-input
-        autocomplete="off"
-        v-on:keyup.enter="createRoom"
-        type="text"
-        v-model="roomName"
-        name="room"
-        class="form-input"
-        placeholder="Room Name"></b-input>
-    </b-field>
-    <div class="form-group">
-      <div class="col-3">
-        <label for="shuffleOrder" class="form-label">Shuffle Order</label>
-      </div>
-      <div class="col-9">
-        <select v-model="shuffleOrder" name="shuffleOrder" class="form-select">
+    <b-field grouped>
+      <b-field expanded label="Room Name">
+        <b-input
+          autocomplete="off"
+          v-on:keyup.enter="createRoom"
+          type="text"
+          v-model="roomName"
+          name="room"
+          class="form-input"
+          placeholder="Room Name"></b-input>
+      </b-field>
+      <b-field label="Shuffle Order">
+        <b-select v-model="shuffleOrder" name="shuffleOrder" class="form-select">
           <option value="robin">Round Robin</option>
           <option value="shuffle">Fair Random</option>
           <option value="random">True Random</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <button v-on:click="createRoom" class="btn btn-lg centered">Create Room</button>
-    </div>
+        </b-select>
+      </b-field>
+      <b-field class="align-button" label=".">
+        <p class="control">
+          <button v-on:click="createRoom" class="button is-primary">Create Room</button>
+        </p>
+      </b-field>
+    </b-field>
   </div>
 </template>
 
@@ -42,8 +41,8 @@ export default {
         roomName: this.roomName,
         shuffleOrder: this.shuffleOrder
       }
-      this.$http.post('/room', data, {emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
+      this.$http.post('room', data, {emulateJSON: true}).then(response => {
+        var data = response.body
         if (data.Error) {
           this.$emit('ajaxErr', data)
           return
@@ -54,3 +53,9 @@ export default {
   }
 }
 </script>
+
+<style>
+.align-button label {
+  visibility: hidden;
+}
+</style>

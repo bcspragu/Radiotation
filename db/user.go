@@ -20,9 +20,10 @@ type (
 )
 
 const (
-	GoogleAccount AccountType = iota
+	UnknownAccountType AccountType = iota
 	FacebookAccount
-	UnknownAccountType
+	GoogleAccount
+	NonLoggedInAccount
 )
 
 func (a AccountType) String() string {
@@ -31,6 +32,8 @@ func (a AccountType) String() string {
 		return "Google"
 	case FacebookAccount:
 		return "Facebook"
+	case NonLoggedInAccount:
+		return "NonLoggedIn"
 	}
 	return "Unknown"
 }
@@ -41,6 +44,8 @@ func accountTypeFromString(at string) (AccountType, error) {
 		return GoogleAccount, nil
 	case "Facebook":
 		return FacebookAccount, nil
+	case "NonLoggedIn":
+		return NonLoggedInAccount, nil
 	default:
 		return UnknownAccountType, fmt.Errorf("unrecognized account type %q", at)
 	}

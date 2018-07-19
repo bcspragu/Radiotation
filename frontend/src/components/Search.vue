@@ -68,7 +68,7 @@ export default {
       var url = `/room/${this.roomID}/add`
       var data = {id: track.ID}
       this.$http.post(url, data, {emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
+        var data = response.body
         if (data.Error) {
           this.$emit('ajaxErr', data)
           return

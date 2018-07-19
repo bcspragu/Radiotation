@@ -1,5 +1,5 @@
 <template>
-  <div ref="signinBtn" class="button">Sign In</div>
+  <div ref="signinBtn" class="button is-primary">Sign In</div>
 </template>
 
 <script>
