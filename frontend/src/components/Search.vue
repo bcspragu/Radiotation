@@ -83,10 +83,10 @@ export default {
       if (!this.query) {
         return
       }
-      var url = `/room/${this.roomID}/search`
+      var url = `room/${this.roomID}/search`
       var data = {query: this.query}
       this.$http.get(url, {params: data, emulateJSON: true}).then(response => {
-        var data = JSON.parse(response.body)
+        var data = response.body
         if (data.RoomNotFound) {
           this.$router.push({name: 'CreateRoom', params: {id: this.roomID}})
           return

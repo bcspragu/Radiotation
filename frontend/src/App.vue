@@ -39,6 +39,17 @@ export default {
 </style>
 
 <style lang="scss">
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
+
+#app {
+  display: flex;
+  flex-flow: column;
+  height: 100%;
+}
+
 // Import Bulma's core
 @import "~bulma/sass/utilities/_all";
 

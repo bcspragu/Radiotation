@@ -1,17 +1,23 @@
 <template>
   <div class="room-container">
-    <div class="input-group">
-      <input 
-        autocomplete="off"
-        v-on:keyup.enter="goToSearch"
-        type="text"
-        v-model="query"
-        name="search"
-        class="form-input input-lg"
-        placeholder="Search for Music">
-      <button v-on:click="goToSearch" class="btn btn-lg input-group-btn"><i class="icon icon-search"></i></button>
+    <div class="columns is-gapless search-bar">
+      <div class="column is-12">
+        <b-field>
+          <b-input expanded placeholder="Search for music..."
+            type="search"
+            autocomplete="off"
+            v-on:keyup.enter="goToSearch"
+            v-model="query"
+            name="search"
+            class="form-input input-lg"
+            icon="magnify">
+          </b-input>
+          <p class="control">
+            <button class="button is-primary" @click="goToSearch">Search</button>
+          </p>
+        </b-field>
+      </div>
     </div>
-    <div class="divider">Your Queue</div>
     <div class="queue">
       <div v-for="(track, index) in queue" class="container" :class="{played: track.Played, 'not-played': !track.Played}" :key="track.Artist+track.Title+track.Image">
         <div class="columns col-gapless">
@@ -118,7 +124,7 @@ export default {
             newURI = "wss:"
         }
         newURI += "//" + loc.host
-        newURI += loc.pathname + `/api/ws/room/${this.id}`
+        newURI += loc.pathname + `api/ws/room/${this.id}`
         var conn = new WebSocket(newURI)
         conn.onclose = (evt) => {
           console.log(evt)
@@ -137,6 +143,10 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.search-bar {
+  margin: 0;
 }
 
 .queue {

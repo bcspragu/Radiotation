@@ -91,13 +91,13 @@ func NewSongServer(apiEndpoint, clientID, secret string) radio.SongServer {
 }
 
 func (s *spotifySongServer) requestWithAuth(u string) *http.Request {
-	r, _ := http.NewRequest(http.MethodPost, u, nil)
+	r, _ := http.NewRequest(http.MethodGet, u, nil)
 	r.Header.Set("Authorization", "Bearer "+s.token())
 	return r
 }
 
 func (s *spotifySongServer) Track(id string) (radio.Track, error) {
-	url := fmt.Sprintf("http://api.%s/v1/tracks/%s", s.apiEndpoint, url.QueryEscape(id))
+	url := fmt.Sprintf("https://api.%s/v1/tracks/%s", s.apiEndpoint, url.QueryEscape(id))
 	req := s.requestWithAuth(url)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -117,20 +117,16 @@ func (s *spotifySongServer) Track(id string) (radio.Track, error) {
 }
 
 func (s *spotifySongServer) Search(query string) ([]radio.Track, error) {
-	url := fmt.Sprintf("http://api.%s/v1/search?q=%s&type=track", s.apiEndpoint, url.QueryEscape(query))
+	url := fmt.Sprintf("https://api.%s/v1/search?q=%s&type=track", s.apiEndpoint, url.QueryEscape(query))
 	req := s.requestWithAuth(url)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return []radio.Track{}, fmt.Errorf("error querying Spotify API: %v", err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return []radio.Track{}, fmt.Errorf("error reading from Spotify API: %v", err)
-	}
+
 	var spotifyResp spotifyResponse
-	err = json.Unmarshal(body, &spotifyResp)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&spotifyResp); err != nil {
 		return []radio.Track{}, fmt.Errorf("error loading data from Spotify API: %v", err)
 	}
 	return spotifyResp.Tracks.Items, nil

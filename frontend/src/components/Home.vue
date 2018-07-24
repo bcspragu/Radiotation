@@ -61,7 +61,7 @@
         <room-form></room-form>
       </div>
     </div>
-    <div class="columns is-centered">
+    <div v-if="!user" class="columns is-centered">
       <div class="column is-2">
         <sign-in-button class="is-large is-fullwidth" @done="onUserLoggedIn"/>
       </div>
@@ -109,7 +109,7 @@ export default {
         return
       }
       var data = {token: googleUser.getAuthResponse().id_token}
-      this.$http.post('/verifyToken', data, {emulateJSON: true}).then(() => {
+      this.$http.post('verifyToken', data, {emulateJSON: true}).then(() => {
         if (this.redirect) {
           this.$router.push({path: this.redirect})
           return

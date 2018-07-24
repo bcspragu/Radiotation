@@ -1,8 +1,12 @@
 <template>
   <div>
-    <h5 class="header text-center">Room Code '{{id}}' doesn't exist</h5>
-    <h6 class="subheader text-center">Want to make a new room?</h6>
-    <room-form></room-form>
+    <h1 class="is-size-2 has-text-centered">Room Code '{{id}}' doesn't exist</h1>
+    <h2 class="is-size-3 has-text-centered">Want to make a new room?</h2>
+    <div class="columns is-centered">
+      <div class="column is-6 is-10-mobile is-offset-1-mobile">
+        <room-form></room-form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -26,11 +30,4 @@ export default {
 </script>
 
 <style scoped>
-.header {
-  margin-top: 6px;
-}
-
-.subheader {
-  margin-top: -8px;
-}
 </style>
