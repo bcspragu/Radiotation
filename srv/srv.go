@@ -249,7 +249,30 @@ func (s *Srv) serveRoomSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResp(w, rooms)
+	type respRoom struct {
+		DisplayName string
+		RoomCode    string
+		NumberUsers int
+	}
+
+	type searchResp struct {
+		Rooms []respRoom
+	}
+
+	respRooms := make([]respRoom, 0, len(rooms))
+	for _, rm := range rooms {
+		us, err := s.userDB.Users(rm.ID)
+		if err != nil {
+			log.Printf("Failed to get user list for room %q: %v", rm.ID, err)
+		}
+		respRooms = append(respRooms, respRoom{
+			DisplayName: rm.DisplayName,
+			RoomCode:    string(rm.ID),
+			NumberUsers: len(us),
+		})
+	}
+
+	jsonResp(w, respRooms)
 	return
 }
 

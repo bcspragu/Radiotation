@@ -1,12 +1,12 @@
 <template>
   <div class="room-container">
-    <div class="columns is-gapless search-bar">
-      <div class="column is-12">
+    <div class="columns is-gapless is-centered is-mobile">
+      <div class="column is-10">
         <b-field>
           <b-input expanded placeholder="Search for music..."
             type="search"
             autocomplete="off"
-            v-on:keyup.enter="goToSearch"
+            @keyup.native.enter="goToSearch"
             v-model="query"
             name="search"
             class="form-input input-lg"
@@ -19,11 +19,11 @@
       </div>
     </div>
     <div class="queue">
-      <div v-for="(track, index) in queue" class="container" :class="{played: track.Played, 'not-played': !track.Played}" :key="track.Artist+track.Title+track.Image">
-        <div class="columns col-gapless">
-          <div class="column col-10"><track-item v-bind="track"/></div>
-          <div v-if="!track.Played" class="column col-2 song-op" v-on:click="removeSong(track, index)">
-            <button class="btn btn-link"><i class="icon icon-cross"></i></button>
+      <div v-for="(track, index) in queue" class="container" :class="{played: track.Played, 'not-played': !track.Played}" :key="track.ID">
+        <div class="columns is-gapless is-mobile">
+          <div class="column is-10"><track-item v-bind="track"/></div>
+          <div v-if="!track.Played" class="column is-2 song-op">
+            <button v-on:click="removeSong(track, index)" class="button is-link"><b-icon icon="close"></b-icon></button>
           </div>
         </div>
       </div>
@@ -143,10 +143,6 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-}
-
-.search-bar {
-  margin: 0;
 }
 
 .queue {

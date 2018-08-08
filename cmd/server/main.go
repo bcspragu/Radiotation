@@ -1,4 +1,4 @@
-package main
+package main // import github.com/bcspragu/Radiotation/cmd/server
 
 import (
 	"log"

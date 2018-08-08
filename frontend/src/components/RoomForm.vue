@@ -4,7 +4,7 @@
       <b-field expanded label="Room Name">
         <b-input
           autocomplete="off"
-          v-on:keyup.enter="createRoom"
+          @keyup.native.enter="createRoom"
           type="text"
           v-model="roomName"
           name="room"

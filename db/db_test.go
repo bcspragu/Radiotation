@@ -720,7 +720,7 @@ func testHistory(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	for i := 0; i < 3; i++ {
 		tracks = append(tracks, &db.TrackEntry{
 			UserID: uID,
-			Track: radio.Track{
+			Track: &radio.Track{
 				ID:      fmt.Sprintf("testID%d", i),
 				Name:    fmt.Sprintf("Test Track %d", i),
 				Artists: []radio.Artist{radio.Artist{Name: fmt.Sprintf("Test Artist %d", i)}},

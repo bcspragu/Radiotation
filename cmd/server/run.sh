@@ -1,10 +1,3 @@
 #!/bin/bash
-gin \
-  --port=8080 \
-  --bin=data/gin-bin \
-  --appPort=8000 \
-  --path=../.. \
-  --build=. \
-  --excludeDir=frontend \
-  run
-
+CC=gcc vgo build github.com/bcspragu/Radiotation/cmd/server
+./server --addr=:8080

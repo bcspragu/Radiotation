@@ -1,13 +1,15 @@
 <template>
-  <div class="track container">
-    <div class="columns col-gapless">
-      <div class="thumbnail column col-2">
+  <div class="track">
+    <div class="columns is-gapless is-mobile">
+      <div class="thumbnail column is-2">
         <img :src="image">
       </div>
-      <div class="metadata-holder column col-10">
-        <div class="title metadata">{{Name}}</div>
-        <div class="artist metadata">{{artist}}</div>
-        <div class="album metadata">{{Album.Name}}</div>
+      <div class="column is-10">
+        <div class="metadata-holder">
+          <div class="title metadata">{{Name}}</div>
+          <div class="artist metadata">{{artist}}</div>
+          <div class="album metadata">{{Album.Name}}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -43,6 +45,7 @@ export default {
 }
 
 .thumbnail {
+  padding: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -52,7 +55,7 @@ export default {
   max-width: 100%;
 }
 
-div.metadata-holder.column {
+.metadata-holder {
   padding-left: 12px;
 }
 
@@ -60,6 +63,8 @@ div.metadata-holder.column {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0;
+  margin: 0;
 }
 
 .title {

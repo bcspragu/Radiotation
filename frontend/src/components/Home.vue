@@ -22,7 +22,7 @@
           <b-field expanded label="Room Code">
             <b-input
               autocomplete="off"
-              v-on:keyup.enter="joinRoom"
+              @keyup.native.enter="joinRoom"
               type="text"
               v-model="roomCode"
               name="room-code"
@@ -41,7 +41,7 @@
           <b-field expanded label="Search">
             <b-input
               autocomplete="off"
-              v-on:keyup.enter="searchForRoom"
+              @keyup.native.enter="searchForRoom"
               type="text"
               v-model="searchTerm"
               name="search-room"
@@ -121,7 +121,7 @@ export default {
       this.$router.push({name: 'Room', params: {id: this.roomCode}})
     },
     searchForRoom () {
-      this.$router.push({name: 'Room', params: {id: this.roomCode}})
+      this.$router.push({name: 'RoomList', query: {query: this.searchTerm}})
     }
   }
 }
