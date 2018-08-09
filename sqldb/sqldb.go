@@ -210,7 +210,8 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]*db.Queue
 
 		te, ok := links[current]
 		if !ok {
-			return nil, fmt.Errorf("missing link for ID %q", current)
+			// Could be the boundary between played/unplayed, just stop.
+			break
 		}
 
 		tracks = append(tracks, &db.QueueTrack{

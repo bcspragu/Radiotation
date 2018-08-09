@@ -21,7 +21,7 @@
     <div class="queue">
       <div v-for="(track, index) in queue" class="container" :class="{played: track.Played, 'not-played': !track.Played}" :key="track.ID">
         <div class="columns is-gapless is-mobile">
-          <div class="column is-10"><track-item v-bind="track"/></div>
+          <div class="column is-10"><track-item v-bind="track.Track"/></div>
           <div v-if="!track.Played" class="column is-2 song-op">
             <button v-on:click="removeSong(track, index)" class="button is-link"><b-icon icon="close"></b-icon></button>
           </div>
@@ -71,7 +71,7 @@ export default {
   methods: {
     removeSong (track, index) {
       var url = `room/${this.id}/remove`
-      var data = {index: index, id: track.ID}
+      var data = {queueTrackID: track.ID}
       this.$http.post(url, data, {emulateJSON: true}).then(response => {
         var data = response.body;
         if (data.Error) {
@@ -127,6 +127,7 @@ export default {
         newURI += loc.pathname + `api/ws/room/${this.id}`
         var conn = new WebSocket(newURI)
         conn.onclose = (evt) => {
+          // eslint-disable-next-line
           console.log(evt)
         }
         conn.onmessage = (evt) => {

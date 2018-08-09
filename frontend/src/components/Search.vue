@@ -26,10 +26,14 @@
       <div v-for="(track, index) in results" class="container" :key="track.ID">
         <div class="columns is-gapless is-mobile">
           <div class="column is-10"><track-item v-bind="track"/></div>
-          <div class="column is-2 song-op" v-on:click="updateQueueStatus(track, index)">
-            <button class="button is-link" :disabled="track.InQueue">
-              <b-icon :icon="addOrCheck(track.InQueue)"></b-icon>
-            </button>
+          <div class="column is-2 song-op">
+            <b-dropdown :disabled="track.InQueue">
+                <button class="button is-link" :disabled="track.InQueue" slot="trigger">
+                  <b-icon :icon="addOrCheck(track.InQueue)"></b-icon>
+                </button>
+                <b-dropdown-item v-if="!track.InQueue" v-on:click="addNext(track, index)">Add Next</b-dropdown-item>
+                <b-dropdown-item v-if="!track.InQueue" v-on:click="addLast(track, index)">Add Last</b-dropdown-item>
+            </b-dropdown>
           </div>
         </div>
       </div>
@@ -54,7 +58,6 @@ export default {
     'track-item': Track
   },
   created () {
-    this.$emit('updateTitle', 'Loading results...')
     this.search()
   },
   computed: {
@@ -69,14 +72,20 @@ export default {
       }
       return 'plus'
     },
-    updateQueueStatus (track, index) {
+    addNext (track, index) {
       if (track.InQueue) {
         return
       }
-      this.addSong(track, index)
+      this.addSong(track, index, "addNext")
     },
-    addSong (track, index) {
-      var url = `room/${this.roomID}/add`
+    addLast (track, index) {
+      if (track.InQueue) {
+        return
+      }
+      this.addSong(track, index, "addLast")
+    },
+    addSong (track, index, addPosition) {
+      var url = `room/${this.roomID}/${addPosition}`
       var data = {id: track.ID}
       this.$http.post(url, data, {emulateJSON: true}).then(response => {
         var data = response.body
@@ -88,6 +97,7 @@ export default {
       })
     },
     goBack () {
+      this.$emit('updateTitle', {mod: 'pop' })
       this.$router.back()
     },
     search () {
@@ -107,7 +117,7 @@ export default {
           return
         }
         this.results = data
-        this.$emit('updateTitle', 'Results for ' + this.query)
+        this.$emit('updateTitle', {mod: 'add', item: {text: 'Results for ' + this.query, to: '#' } })
         if (this.noResults) {
           this.noResultsMsg = 'No results found'
         }

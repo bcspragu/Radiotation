@@ -104,8 +104,10 @@ func (s *Srv) initMux() *mux.Router {
 
 	// Create a room.
 	m.HandleFunc("/api/room", s.serveCreateRoom).Methods("POST")
-	// Add a song to a queue.
-	m.HandleFunc("/api/room/{id}/add", s.withRoomAndUser(s.addToQueue)).Methods("POST")
+	// Add a song to a queue as the next song.
+	m.HandleFunc("/api/room/{id}/addNext", s.withRoomAndUser(s.addToQueueNext)).Methods("POST")
+	// Add a song to a queue at the end.
+	m.HandleFunc("/api/room/{id}/addLast", s.withRoomAndUser(s.addToQueueLast)).Methods("POST")
 	// Remove a song from a queue.
 	m.HandleFunc("/api/room/{id}/remove", s.withRoomAndUser(s.removeFromQueue)).Methods("POST")
 
@@ -128,16 +130,23 @@ func (s *Srv) serveUser(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, u)
 }
 
-func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
+func (s *Srv) addToQueueNext(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
+	return s.addToQueue(w, r, u, rm, s.addNext)
+}
+
+func (s *Srv) addToQueueLast(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
+	return s.addToQueue(w, r, u, rm, s.addLast)
+}
+
+func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room, add func(db.QueueID, *radio.Track) error) error {
 	trackID := r.FormValue("id")
-	afterQTID := r.FormValue("afterQTID")
 
 	track, err := s.track(trackID)
 	if err != nil {
 		return err
 	}
 
-	if err := s.queueDB.AddTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, &track, afterQTID); err != nil {
+	if err := add(db.QueueID{RoomID: rm.ID, UserID: u.ID}, &track); err != nil {
 		log.Println(err)
 	}
 
@@ -375,25 +384,34 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 		return err
 	}
 
-	type trackWithPlayed struct {
-		radio.Track
-		Played bool
-	}
-
-	tracksWithPlayed := []*trackWithPlayed{}
-	for _, qt := range qts {
-		tracksWithPlayed = append(tracksWithPlayed, &trackWithPlayed{
-			Track:  *qt.Track,
-			Played: qt.Played,
-		})
-	}
-
 	jsonResp(w, struct {
 		Room  *db.Room
-		Queue []*trackWithPlayed
+		Queue []*db.QueueTrack
 		Track *radio.Track
-	}{rm, tracksWithPlayed, s.nowPlaying(rm.ID)})
+	}{rm, qts, s.nowPlaying(rm.ID)})
 	return nil
+}
+
+func (s *Srv) addNext(qID db.QueueID, t *radio.Track) error {
+	return s.addTrackAfter(qID, t, db.PlayedOnly)
+}
+
+func (s *Srv) addLast(qID db.QueueID, t *radio.Track) error {
+	return s.addTrackAfter(qID, t, db.AllTracks)
+}
+
+func (s *Srv) addTrackAfter(qID db.QueueID, t *radio.Track, qot db.QueueType) error {
+	qts, err := s.queueDB.Tracks(qID, &db.QueueOptions{Type: qot})
+	if err != nil {
+		return err
+	}
+
+	afterID := ""
+	if len(qts) > 0 {
+		afterID = qts[len(qts)-1].ID
+	}
+
+	return s.queueDB.AddTrack(qID, t, afterID)
 }
 
 func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {

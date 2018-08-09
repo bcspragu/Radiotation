@@ -38,7 +38,6 @@ export default {
     },
     searchRooms () {
       var data = {query: this.query}
-      console.log(data)
       this.$http.get('search', {params: data, emulateJSON: true}).then(response => {
         var data = response.body
         this.results = data
