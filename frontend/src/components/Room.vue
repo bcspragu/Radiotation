@@ -1,7 +1,7 @@
 <template>
   <div class="room-container">
-    <div class="columns is-gapless is-centered is-mobile">
-      <div class="column is-10">
+    <div class="columns is-mobile">
+      <div class="column is-7-desktop is-8-mobile is-offset-1-desktop">
         <b-field>
           <b-input expanded placeholder="Search for music..."
             type="search"
@@ -9,13 +9,15 @@
             @keyup.native.enter="goToSearch"
             v-model="query"
             name="search"
-            class="form-input input-lg"
             icon="magnify">
           </b-input>
           <p class="control">
             <button class="button is-primary" @click="goToSearch">Search</button>
           </p>
         </b-field>
+      </div>
+      <div class="column is-3-desktop is-4-mobile">
+        <a class="button is-outlined is-fullwidth is-static" v-show="room.ID">Code: {{room.ID}}</a>
       </div>
     </div>
     <div class="queue">

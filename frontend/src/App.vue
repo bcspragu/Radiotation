@@ -2,12 +2,12 @@
   <div id="app">
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand">
-        <div v-for="(tt, index) in title">
-          <router-link :to="tt.to" class="is-size-5 navbar-item">
-            <img v-if="index == 0" class="logo" src="./assets/radiotation_logo.png">
-            {{ tt.text }}
-          </router-link>
-        </div>
+        <router-link class="navbar-item" :to="{ name: 'Home' }">
+          <img src="./assets/radiotation_logo.png" alt="Radiotation Logo" width="28" height="28">
+        </router-link>
+      </div>
+      <div class="is-size-5 navbar-item">
+        {{ title }}
       </div>
     </nav>
     <router-view v-on:updateTitle="updateTitle" v-on:ajaxErr="handleError"/>
@@ -19,21 +19,12 @@ export default {
   name: 'app',
   data () {
     return {
-      title: [{text: 'Radiotation', to: { name: 'Home' }}],
+      title: '',
     }
   },
   methods: {
-    updateTitle (mod) {
-      switch (mod.mod) {
-        case 'add':
-          this.title.push(mod.item)
-          break
-        case 'set':
-          this.title = mod.item
-        case 'pop':
-          this.title.pop()
-      }
-      console.log(this.title)
+    updateTitle (title) {
+      this.title = title
     },
     handleError (data) {
       // eslint-disable-next-line

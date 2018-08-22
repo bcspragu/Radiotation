@@ -25,6 +25,7 @@ export default {
     }
   },
   created () {
+    this.$emit('updateTitle', `Results for room "${this.query}"`)
     this.searchRooms()
   },
   computed: {

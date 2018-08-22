@@ -58,6 +58,7 @@ export default {
     'track-item': Track
   },
   created () {
+    this.$emit('updateTitle', `Results for "${this.query}"`)
     this.search()
   },
   computed: {
@@ -97,7 +98,6 @@ export default {
       })
     },
     goBack () {
-      this.$emit('updateTitle', {mod: 'pop' })
       this.$router.back()
     },
     search () {
@@ -117,7 +117,6 @@ export default {
           return
         }
         this.results = data
-        this.$emit('updateTitle', {mod: 'add', item: {text: 'Results for ' + this.query, to: '#' } })
         if (this.noResults) {
           this.noResultsMsg = 'No results found'
         }
