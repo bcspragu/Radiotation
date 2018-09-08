@@ -55,7 +55,7 @@ type Config struct {
 	StaticDir    string
 }
 
-// New returns an initialized server
+// New returns an initialized server.
 func New(sdb db.DB, cfg *Config) (*Srv, error) {
 	sc, err := loadKeys()
 	if err != nil {

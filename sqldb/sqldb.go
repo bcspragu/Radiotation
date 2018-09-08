@@ -72,8 +72,7 @@ type DB struct {
 	DB       *sql.DB
 }
 
-// InitSQLiteDB creates a new *DB that is stored on disk as
-// 'radiotation-sql.db'.
+// New creates a new *DB that is stored on disk at the given filename.
 func New(fn string, src rand.Source) (*DB, error) {
 	sdb, err := sql.Open("sqlite3", fn)
 	if err != nil {

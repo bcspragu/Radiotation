@@ -1,0 +1,20 @@
+pipeline:
+  backend:
+    group: build
+    image: golang:1.11
+    commands:
+      - GOCACHE=/go/pkg/mod/go-build CGO_ENABLED=0 GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/server/server github.com/bcspragu/Radiotation/cmd/server
+      - GOCACHE=/go/pkg/mod/go-build go test ./...
+    volumes:
+      - /tmp/gocache:/go/pkg/mod
+  frontend:
+    group: build
+    image: docker.bsprague.com/node
+    commands:
+      - cd frontend
+      - yarn
+      - yarn build
+    volumes:
+      - /tmp/nodecache:/drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
+
+branches: master
