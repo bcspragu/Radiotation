@@ -16,5 +16,28 @@ pipeline:
       - yarn build
     volumes:
       - /tmp/nodecache:/drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
+  docker:
+    image: plugins/docker
+    repo: docker.bsprague.com/radiotation
+    registry: docker.bsprague.com
+    secrets: [ docker_username, docker_password ]
+    dockerfile: cmd/server/Dockerfile
+    context: cmd/server/
+  scp:
+    group: deploy
+    image: appleboy/drone-scp
+    host: prod.bsprague.com
+    secrets: [ ssh_username, ssh_key ]
+    target: /var/www/radiotation.com
+    source: frontend/dist/*
+    rm: true
+    strip_components: 2
+  ssh:
+    group: deploy
+    image: appleboy/drone-ssh
+    host: prod.bsprague.com
+    secrets: [ ssh_username, ssh_key ]
+    script:
+      - sudo systemctl restart radiotation.service
 
 branches: master

@@ -16,7 +16,6 @@ import (
 )
 
 var (
-	_             = flag.String(flag.DefaultConfigFlagname, "config", "Path to config file")
 	addr          = flag.String("addr", ":8000", "HTTP service address")
 	clientID      = flag.String("client_id", "", "The Google ClientID to use")
 	fcmKey        = flag.String("fcm_key", "", "The Firebase Cloud Messaging Key to use")
@@ -25,6 +24,7 @@ var (
 	dev           = flag.Bool("dev", true, "If true, use development configuration")
 	frontendGlob  = flag.String("frontend_glob", "", "The location to find the frontend HTML files.")
 	staticDir     = flag.String("static_dir", "", "The location to find the static frontend files.")
+	dbPath        = flag.String("db_path", "", "The location to store/load the SQLite database.")
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("Missing a required flag, all of  --client_id, --spotify_client_id, and --spotify_secret are required.")
 	}
 
-	db, err := sqldb.New("radiotation.db", sqldb.CryptoRandSource{})
+	db, err := sqldb.New(*dbPath, sqldb.CryptoRandSource{})
 	if err != nil {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
