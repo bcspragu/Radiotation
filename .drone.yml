@@ -4,6 +4,7 @@ pipeline:
     image: golang:1.11
     commands:
       - GOCACHE=/go/pkg/mod/go-build CGO_ENABLED=0 GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/server/server github.com/bcspragu/Radiotation/cmd/server
+      - GOCACHE=/go/pkg/mod/go-build CGO_ENABLED=0 GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/goose/goose github.com/bcspragu/Radiotation/cmd/goose
       - GOCACHE=/go/pkg/mod/go-build go test ./...
     volumes:
       - /tmp/gocache:/go/pkg/mod
@@ -21,8 +22,7 @@ pipeline:
     repo: docker.bsprague.com/radiotation
     registry: docker.bsprague.com
     secrets: [ docker_username, docker_password ]
-    dockerfile: cmd/server/Dockerfile
-    context: cmd/server/
+    dockerfile: Dockerfile
   scp:
     group: deploy
     image: appleboy/drone-scp
