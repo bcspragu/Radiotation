@@ -430,7 +430,9 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm
 
 	inQueue := make(map[string]bool)
 	for _, qt := range qts {
-		inQueue[qt.Track.ID] = true
+		if !qt.Played {
+			inQueue[qt.Track.ID] = true
+		}
 	}
 
 	type trackInQueue struct {
