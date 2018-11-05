@@ -767,9 +767,11 @@ func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) erro
 			return
 		}
 
-		// If there's no next track to be played, we need to set ourselves as the
-		// next track.
-		if !nextQueueTrackID.Valid || (nextQueueTrackID.Valid && afterQTID == "") {
+		// There are three cases when we need to set ourself as the next track:
+		// 1. If there's no next track to be played
+		// 2. If there is a next track, but we've been added before it.
+		// 3. If there is a next track, and we just got placed in front of it.
+		if !nextQueueTrackID.Valid || (nextQueueTrackID.Valid && afterQTID == "") || (nextQueueTrackID.Valid && nextQueueTrackID.String == nextID.String) {
 			if _, err := tx.Exec(updateNextTrackStmt, id, string(qID.RoomID), qID.UserID.String()); err != nil {
 				errChan <- err
 				return

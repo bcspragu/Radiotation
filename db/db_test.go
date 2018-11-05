@@ -370,6 +370,105 @@ func testNextTrackOneUser(t *testing.T, newDB func(*testing.T) (db.DB, closeFn))
 	trackEquals(t, gotTrack, nil)
 }
 
+func TestNextTrackAddNext(t *testing.T) {
+	t.Run("SQLite", func(t *testing.T) { testNextTrackAddNext(t, newSQLDB) })
+	t.Run("MemDB", func(t *testing.T) { testNextTrackAddNext(t, newMemDB) })
+}
+
+func testNextTrackAddNext(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
+	sdb, closeFn := newDB(t)
+	defer closeFn()
+
+	rID, err := sdb.AddRoom(&db.Room{DisplayName: "Test Room", RotatorType: db.RoundRobin})
+	if err != nil {
+		t.Fatalf("AddRoom(): %v", err)
+	}
+
+	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	user := &db.User{ID: uID, First: "Test", Last: "Name"}
+
+	if err := sdb.AddUser(user); err != nil {
+		t.Fatalf("AddUser(): %v", err)
+	}
+
+	if err := sdb.AddUserToRoom(rID, uID); err != nil {
+		t.Fatalf("AddUserToRoom(): %v", err)
+	}
+
+	qID := db.QueueID{RoomID: rID, UserID: uID}
+	track1 := &radio.Track{
+		ID:      "testID1",
+		Name:    "Test Track1",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist1"}},
+	}
+	if err := sdb.AddTrack(qID, track1, ""); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	ts, err := sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	// Pull the first track from the queue.
+	gotUser, gotTrack, err := sdb.NextTrack(rID)
+	if err != nil {
+		t.Fatalf("NextTrack(): %v", err)
+	}
+
+	// Make sure we got the right/only user.
+	userEquals(t, gotUser, user)
+	// Make sure we got the first track.
+	trackEquals(t, gotTrack, track1)
+
+	track2 := &radio.Track{
+		ID:      "testID2",
+		Name:    "Test Track2",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist2"}},
+	}
+	if err := sdb.AddTrack(qID, track2, ts[0].ID); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	// Load our track list, make sure both tracks are still there and one is
+	// played.
+	ts, err = sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	trackCount(t, ts, 2)
+	trackPlayed(t, ts[0])
+	trackNotPlayed(t, ts[1])
+
+	track3 := &radio.Track{
+		ID:      "testID3",
+		Name:    "Test Track3",
+		Artists: []radio.Artist{radio.Artist{Name: "Test Artist3"}},
+	}
+	if err := sdb.AddTrack(qID, track3, ts[0].ID); err != nil {
+		t.Fatalf("AddTrack(): %v", err)
+	}
+
+	// Pull the second track from the queue.
+	gotUser, gotTrack, err = sdb.NextTrack(rID)
+	if err != nil {
+		t.Fatalf("NextTrack(): %v", err)
+	}
+
+	userEquals(t, gotUser, user)
+	trackEquals(t, gotTrack, track3)
+
+	ts, err = sdb.Tracks(qID, &db.QueueOptions{Type: db.AllTracks})
+	if err != nil {
+		t.Fatalf("Tracks(): %v", err)
+	}
+
+	trackCount(t, ts, 3)
+	trackPlayed(t, ts[0])
+	trackPlayed(t, ts[1])
+}
+
 func TestNextTrackMultipleUsers(t *testing.T) {
 	t.Run("SQLite", func(t *testing.T) { testNextTrackMultipleUsers(t, newSQLDB) })
 	t.Run("MemDB", func(t *testing.T) { testNextTrackMultipleUsers(t, newMemDB) })
