@@ -21,7 +21,7 @@ steps:
     - yarn build
   volumes:
     - name: nodecache
-      path: /drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
+      path: /drone/src/frontend/node_modules
 - name: docker
   image: plugins/docker
   settings:
