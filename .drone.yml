@@ -32,24 +32,26 @@ steps:
     dockerfile: Dockerfile
 - name: scp
   image: appleboy/drone-scp
-  host: prod.bsprague.com
-  username:
-    from_secret: ssh_username
-  key:
-    from_secret: ssh_key
-  target: /var/www/radiotation.com
-  source: frontend/dist/*
-  rm: true
-  strip_components: 2
+  settings:
+    host: prod.bsprague.com
+    username:
+      from_secret: ssh_username
+    key:
+      from_secret: ssh_key
+    target: /var/www/radiotation.com
+    source: frontend/dist/*
+    rm: true
+    strip_components: 2
 - name: ssh
   image: appleboy/drone-ssh
-  host: prod.bsprague.com
-  username:
-    from_secret: ssh_username
-  key:
-    from_secret: ssh_key
-  script:
-    - sudo systemctl restart radiotation.service
+  settings:
+    host: prod.bsprague.com
+    username:
+      from_secret: ssh_username
+    key:
+      from_secret: ssh_key
+    script:
+      - sudo systemctl restart radiotation.service
 
 volumes:
 - name: gocache
