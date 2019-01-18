@@ -14,9 +14,7 @@ steps:
 - name:  frontend
   image: docker.bsprague.com/node
   commands:
-    - pwd
     - cd frontend
-    - pwd
     - yarn
     - yarn build
   volumes:
