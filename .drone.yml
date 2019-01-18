@@ -1,55 +1,54 @@
-pipeline:
-  backend:
-    group: build
-    image: golang:1.11
-    commands:
-      - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/server/server github.com/bcspragu/Radiotation/cmd/server
-      - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/goose/goose github.com/bcspragu/Radiotation/cmd/goose
-      - GOCACHE=/go/pkg/mod/go-build go test ./...
-    volumes:
-      - name: gocache
-        path: /go/pkg/mod
-  frontend:
-    group: build
-    image: docker.bsprague.com/node
-    commands:
-      - cd frontend
-      - yarn
-      - yarn build
-    volumes:
-      - name: nodecache
-        path: /drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
-  docker:
-    image: plugins/docker
-    repo: docker.bsprague.com/radiotation
-    registry: docker.bsprague.com
-    username:
-      from_secret: docker_username
-    password:
-      from_secret: docker_password
-    dockerfile: Dockerfile
-  scp:
-    group: deploy
-    image: appleboy/drone-scp
-    host: prod.bsprague.com
-    username:
-      from_secret: ssh_username
-    key:
-      from_secret: ssh_key
-    target: /var/www/radiotation.com
-    source: frontend/dist/*
-    rm: true
-    strip_components: 2
-  ssh:
-    group: deploy
-    image: appleboy/drone-ssh
-    host: prod.bsprague.com
-    username:
-      from_secret: ssh_username
-    key:
-      from_secret: ssh_key
-    script:
-      - sudo systemctl restart radiotation.service
+kind: pipeline
+name: default
+
+steps:
+- name: backend
+  image: golang:1.11
+  commands:
+    - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/server/server github.com/bcspragu/Radiotation/cmd/server
+    - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/goose/goose github.com/bcspragu/Radiotation/cmd/goose
+    - GOCACHE=/go/pkg/mod/go-build go test ./...
+  volumes:
+    - name: gocache
+      path: /go/pkg/mod
+- name:  frontend
+  image: docker.bsprague.com/node
+  commands:
+    - cd frontend
+    - yarn
+    - yarn build
+  volumes:
+    - name: nodecache
+      path: /drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
+- name: docker
+  image: plugins/docker
+  repo: docker.bsprague.com/radiotation
+  registry: docker.bsprague.com
+  username:
+    from_secret: docker_username
+  password:
+    from_secret: docker_password
+  dockerfile: Dockerfile
+- name: scp
+  image: appleboy/drone-scp
+  host: prod.bsprague.com
+  username:
+    from_secret: ssh_username
+  key:
+    from_secret: ssh_key
+  target: /var/www/radiotation.com
+  source: frontend/dist/*
+  rm: true
+  strip_components: 2
+- name: ssh
+  image: appleboy/drone-ssh
+  host: prod.bsprague.com
+  username:
+    from_secret: ssh_username
+  key:
+    from_secret: ssh_key
+  script:
+    - sudo systemctl restart radiotation.service
 
 volumes:
 - name: gocache
