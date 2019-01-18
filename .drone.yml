@@ -21,13 +21,19 @@ pipeline:
     image: plugins/docker
     repo: docker.bsprague.com/radiotation
     registry: docker.bsprague.com
-    secrets: [ docker_username, docker_password ]
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
     dockerfile: Dockerfile
   scp:
     group: deploy
     image: appleboy/drone-scp
     host: prod.bsprague.com
-    secrets: [ ssh_username, ssh_key ]
+    username:
+      from_secret: ssh_username
+    key:
+      from_secret: ssh_key
     target: /var/www/radiotation.com
     source: frontend/dist/*
     rm: true
@@ -36,7 +42,10 @@ pipeline:
     group: deploy
     image: appleboy/drone-ssh
     host: prod.bsprague.com
-    secrets: [ ssh_username, ssh_key ]
+    username:
+      from_secret: ssh_username
+    key:
+      from_secret: ssh_key
     script:
       - sudo systemctl restart radiotation.service
 
