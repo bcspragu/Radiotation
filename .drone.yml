@@ -7,7 +7,8 @@ pipeline:
       - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/goose/goose github.com/bcspragu/Radiotation/cmd/goose
       - GOCACHE=/go/pkg/mod/go-build go test ./...
     volumes:
-      - /tmp/gocache:/go/pkg/mod
+      - name: gocache
+        path: /go/pkg/mod
   frontend:
     group: build
     image: docker.bsprague.com/node
@@ -16,7 +17,8 @@ pipeline:
       - yarn
       - yarn build
     volumes:
-      - /tmp/nodecache:/drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
+      - name: nodecache
+        path: /drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
   docker:
     image: plugins/docker
     repo: docker.bsprague.com/radiotation
@@ -48,5 +50,12 @@ pipeline:
       from_secret: ssh_key
     script:
       - sudo systemctl restart radiotation.service
+volumes:
+  - name: gocache
+    host:
+      path: /tmp/gocache
+  - name: nodecache
+    host:
+      path: /tmp/nodecache
 
 branches: master
