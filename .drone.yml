@@ -50,12 +50,13 @@ pipeline:
       from_secret: ssh_key
     script:
       - sudo systemctl restart radiotation.service
+
 volumes:
-  - name: gocache
-    host:
-      path: /tmp/gocache
-  - name: nodecache
-    host:
-      path: /tmp/nodecache
+- name: gocache
+  host:
+    path: /tmp/gocache
+- name: nodecache
+  host:
+    path: /tmp/nodecache
 
 branches: master
