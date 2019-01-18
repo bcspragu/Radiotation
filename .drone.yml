@@ -22,13 +22,14 @@ steps:
       path: /drone/src/github.com/bcspragu/Radiotation/frontend/node_modules
 - name: docker
   image: plugins/docker
-  repo: docker.bsprague.com/radiotation
-  registry: docker.bsprague.com
-  username:
-    from_secret: docker_username
-  password:
-    from_secret: docker_password
-  dockerfile: Dockerfile
+  settings:
+    repo: docker.bsprague.com/radiotation
+    registry: docker.bsprague.com
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+    dockerfile: Dockerfile
 - name: scp
   image: appleboy/drone-scp
   host: prod.bsprague.com
