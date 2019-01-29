@@ -6,31 +6,34 @@
       </div>
       <div class="column is-10">
         <div class="metadata-holder">
-          <div class="title metadata">{{name}}</div>
+          <div class="title metadata">{{Name}}</div>
           <div class="artist metadata">{{artist}}</div>
-          <div class="album metadata">{{album.name}}</div>
+          <div class="album metadata">{{Album.Name}}</div>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import { Artist, Album } from '@/data';
-
-@Component
-export default class Track extends Vue {
-  @Prop() private artists: Artist[] = [];
-  @Prop() private name: string = '';
-  @Prop() private album: Album | null = null;
-
-  get artist(): string {
-    const names: string[] = [];
-    for (const artist of this.artists) {
-      names.push(artist.name);
+<script>
+export default {
+  name: 'Track',
+  props: ['Artists', 'Name', 'ID', 'Album'],
+  computed: {
+    image () {
+      var url = 'https://via.placeholder.com/150x150'
+      if (this.Album.Images.length > 0) {
+        url = this.Album.Images[0].URL
+      }
+      return url
+    },
+    artist () {
+      var names = []
+      for (const artist of this.Artists) {
+        names.push(artist.Name)
+      }
+      return names.join(', ')
     }
-    return names.join(', ');
   }
 }
 </script>

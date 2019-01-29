@@ -14,24 +14,30 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-@Component
-export default class App extends Vue {
-  private title = '';
-
-  private updateTitle(title: string): void {
-    this.title = title;
-  }
-
-  private handleError(data: any): void {
-    console.log(data);
+<script>
+export default {
+  name: 'app',
+  data () {
+    return {
+      title: '',
+    }
+  },
+  methods: {
+    updateTitle (title) {
+      this.title = title
+    },
+    handleError (data) {
+      // eslint-disable-next-line
+      console.log(data);
+    }
   }
 }
 </script>
 
-<style>
+<style scoped>
+</style>
+
+<style lang="scss">
 html {
   overflow-y: auto !important;
 }
@@ -51,4 +57,11 @@ nav {
   box-shadow: 0 4px 4px -4px #000000;
   margin-bottom: 1rem;
 }
+
+// Import Bulma's core
+@import "~bulma/sass/utilities/_all";
+
+// Import Bulma and Buefy styles
+@import "~bulma";
+@import "~buefy/src/scss/buefy";
 </style>

@@ -4,6 +4,7 @@ cmd/goose/goose
 cmd/server/config.prod
 cmd/server/env.vars
 cmd/server/server
+cmd/server/*.json
 config
 db/coverage.out
 gin-bin

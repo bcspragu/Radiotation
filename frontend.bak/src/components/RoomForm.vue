@@ -27,27 +27,29 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-@Component
-export default class RoomForm extends Vue {
-  private roomName = '';
-  private shuffleOrder = 'robin';
-
-  private createRoom(): void {
-    const req = {
-      roomName: this.roomName,
-      shuffleOrder: this.shuffleOrder,
-    };
-    this.$http.post('room', req).then((response) => {
-      const data = response.data;
-      if (data.Error) {
-        this.$emit('ajaxErr', data);
-        return;
+<script>
+export default {
+  data () {
+    return {
+      roomName: '',
+      shuffleOrder: 'robin'
+    }
+  },
+  methods: {
+    createRoom () {
+      var data = {
+        roomName: this.roomName,
+        shuffleOrder: this.shuffleOrder
       }
-      this.$router.push({name: 'Room', params: {id: data.ID}});
-    });
+      this.$http.post('room', data, {emulateJSON: true}).then(response => {
+        var data = response.body
+        if (data.Error) {
+          this.$emit('ajaxErr', data)
+          return
+        }
+        this.$router.push({name: 'Room', params: {id: data.ID}})
+      })
+    }
   }
 }
 </script>

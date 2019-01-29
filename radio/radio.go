@@ -6,27 +6,27 @@ type SongServer interface {
 }
 
 type Tracks struct {
-	Items []Track
+	Items []Track `json:"items"`
 }
 
 type Track struct {
-	Artists []Artist
-	Name    string
-	ID      string
-	Album   Album
+	Artists []Artist `json:"artists"`
+	Name    string   `json:"name"`
+	ID      string   `json:"id"`
+	Album   Album    `json:"album"`
 }
 
 type Album struct {
-	Name   string
-	Images []Image
+	Name   string  `json:"name"`
+	Images []Image `json:"images"`
 }
 
 type Artist struct {
-	Name string
+	Name string `json:"name"`
 }
 
 type Image struct {
-	Width  int
-	Height int
-	URL    string
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	URL    string `json:"url"`
 }

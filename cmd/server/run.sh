@@ -7,5 +7,6 @@ if [ -f $DIR/env.vars ]; then
    source $DIR/env.vars
 fi
 
-CC=gcc vgo build github.com/bcspragu/Radiotation/cmd/server
-./server --addr=:8080
+go build -o $DIR/server github.com/bcspragu/Radiotation/cmd/server
+cd $DIR
+$DIR/server --addr=:8080

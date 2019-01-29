@@ -1,4 +1,4 @@
 split -v
-screen -t server cd cmd/server && ./run.sh
+screen -t server cmd/server/run.sh
 focus
 screen -t frontend ./serve.sh

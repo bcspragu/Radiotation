@@ -6,7 +6,7 @@
         <div class="artist metadata">{{artist}}</div>
         <div class="album metadata">{{track.Album.Name}}</div>
     </div>
-    <div class="veto" v-show="track">
+    <div class="veto" v-show="hasTrack">
       <button v-on:click="veto" class="btn btn-lg">Veto <i class="icon icon-delete"></i>
       </button>
     </div>
@@ -17,58 +17,57 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import { Track } from '@/data';
-
-@Component
-export default class NowPlaying extends Vue {
-  @Prop() private track: Track | null = null;
-  @Prop() private roomID: string = '';
-
-  private errMsg = '';
-
-  get artist(): string {
-    if (!this.track) {
-      return '';
+<script>
+export default {
+  name: 'NowPlaying',
+  props: ['track', 'roomId'],
+  data () {
+    return {
+      errMsg: ''
     }
-    const names = [];
-    for (const artist of this.track.artists) {
-      names.push(artist.name);
-    }
-    return names.join(', ');
-  }
-
-  get image(): string {
-    const defURL = 'https://via.placeholder.com/150x150';
-    if (!this.track) {
-      return defURL;
-    }
-    if (!this.track.album) {
-      return defURL;
-    }
-    if (this.track.album.images.length > 0) {
-      return this.track.album.images[0].url;
-    }
-    return defURL;
-  }
-
-  private veto(): void {
-    const url = `/room/${this.roomID}/veto`;
-    this.$http.post(url).then((response) => {
-      const data = response.data;
-      if (data.NotLoggedIn || data.RoomNotFound) {
-        this.$emit('ajaxErr', data);
-        return;
+  },
+  computed: {
+    artist () {
+      var names = []
+      for (const artist of this.track.Artists) {
+        names.push(artist.Name)
       }
-      if (data.Error) {
-        this.errMsg = data.Message;
+      return names.join(', ')
+    },
+    image () {
+      var url = 'https://via.placeholder.com/150x150'
+      if (!this.track.Album) {
+        return url
       }
-    });
-  }
-
-  private clearErr(): void {
-    this.errMsg = '';
+      if (this.track.Album.Images.length > 0) {
+        url = this.track.Album.Images[0].URL
+      }
+      return url
+    },
+    hasTrack () {
+      if (this.track.NoTrack) {
+        return false
+      }
+      return true
+    }
+  },
+  methods: {
+    veto () {
+      var url = `/room/${this.roomId}/veto`
+      this.$http.post(url, {}, {emulateJSON: true}).then(response => {
+        var data = response.body
+        if (data.NotLoggedIn || data.RoomNotFound) {
+          this.$emit('ajaxErr', data)
+          return
+        }
+        if (data.Error) {
+          this.errMsg = data.Message
+        }
+      })
+    },
+    clearErr () {
+      this.errMsg = ''
+    }
   }
 }
 </script>

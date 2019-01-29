@@ -2,7 +2,6 @@ package srv
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,11 +9,11 @@ import (
 	"log"
 	"net/http"
 
+	"firebase.google.com/go/auth"
 	"github.com/NaySoftware/go-fcm"
 	"github.com/bcspragu/Radiotation/db"
 	"github.com/bcspragu/Radiotation/hub"
 	"github.com/bcspragu/Radiotation/radio"
-	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/websocket"
@@ -32,13 +31,12 @@ var (
 )
 
 type Srv struct {
-	sc  *securecookie.SecureCookie
-	h   *hub.Hub
-	mux *mux.Router
-	fcm *fcm.FcmClient
-	cfg *Config
-
-	googleVerifier *oidc.IDTokenVerifier
+	sc         *securecookie.SecureCookie
+	h          *hub.Hub
+	mux        *mux.Router
+	fcm        *fcm.FcmClient
+	authClient *auth.Client
+	cfg        *Config
 
 	roomDB    db.RoomDB
 	userDB    db.UserDB
@@ -51,6 +49,7 @@ type Config struct {
 	SongServer   radio.SongServer
 	Dev          bool
 	FCMKey       string
+	AuthClient   *auth.Client
 	FrontendGlob string
 	StaticDir    string
 }
@@ -62,23 +61,16 @@ func New(sdb db.DB, cfg *Config) (*Srv, error) {
 		return nil, err
 	}
 
-	googleProvider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
-	if err != nil {
-		log.Fatalf("Failed to get provider for Google: %v", err)
-	}
-
 	s := &Srv{
-		sc:  sc,
-		h:   hub.New(),
-		fcm: fcm.NewFcmClient(cfg.FCMKey),
-		cfg: cfg,
-		googleVerifier: googleProvider.Verifier(&oidc.Config{
-			ClientID: cfg.ClientID,
-		}),
-		roomDB:    sdb,
-		userDB:    sdb,
-		queueDB:   sdb,
-		historyDB: sdb,
+		sc:         sc,
+		h:          hub.New(),
+		fcm:        fcm.NewFcmClient(cfg.FCMKey),
+		cfg:        cfg,
+		authClient: cfg.AuthClient,
+		roomDB:     sdb,
+		userDB:     sdb,
+		queueDB:    sdb,
+		historyDB:  sdb,
 	}
 
 	s.mux = s.initMux()
@@ -495,7 +487,7 @@ func (s *Srv) createUser(w http.ResponseWriter, u *db.User) {
 	}
 
 	// We've written the user, we can persist them now
-	log.Printf("Creating user with ID %s", u.ID.String())
+	log.Printf("Creating user with ID %s", u.ID)
 	if err := s.userDB.AddUser(u); err != nil {
 		log.Printf("Failed to add user %+v: %v", u, err)
 	}

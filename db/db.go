@@ -59,10 +59,10 @@ type QueueOptions struct {
 }
 
 type QueueTrack struct {
-	ID     string
-	Played bool
+	ID     string `json:"id"`
+	Played bool   `json:"played"`
 
-	Track *radio.Track
+	Track *radio.Track `json:"track"`
 }
 
 type QueueDB interface {

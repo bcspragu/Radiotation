@@ -126,7 +126,7 @@ func loadTrackEntries(s scanner) ([]*db.TrackEntry, error) {
 
 func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]*db.QueueTrack, error) {
 	var nextTrackID sql.NullString
-	if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID.String()).Scan(&nextTrackID); err != nil {
+	if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID).Scan(&nextTrackID); err != nil {
 		return nil, err
 	}
 
@@ -140,7 +140,7 @@ func loadTrackList(tx *sql.Tx, qID db.QueueID, qo *db.QueueOptions) ([]*db.Queue
 
 	stmt := getTracksStmt + suffix
 
-	rows, err := tx.Query(stmt, string(qID.RoomID), qID.UserID.String())
+	rows, err := tx.Query(stmt, string(qID.RoomID), qID.UserID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -271,24 +271,12 @@ func loadUsers(tx *sql.Tx, rid db.RoomID) ([]*db.User, error) {
 }
 
 func loadUser(s scanner) (*db.User, error) {
-	var ur struct {
-		id        string
-		firstName string
-		lastName  string
-	}
-	if err := s.Scan(&ur.id, &ur.firstName, &ur.lastName); err != nil {
-		return nil, err
-	}
-	uid, err := db.UserIDFromString(ur.id)
-	if err != nil {
+	var u db.User
+	if err := s.Scan(&u.ID, &u.First, &u.Last); err != nil {
 		return nil, err
 	}
 
-	return &db.User{
-		ID:    uid,
-		First: ur.firstName,
-		Last:  ur.lastName,
-	}, nil
+	return &u, nil
 }
 
 func loadRotator(tx *sql.Tx, rID db.RoomID) (db.Rotator, error) {
@@ -387,7 +375,7 @@ func (s *DB) NextTrack(rID db.RoomID) (*db.User, *radio.Track, error) {
 				trackBytes []byte
 				nextID     sql.NullString
 			)
-			err := tx.QueryRow(nextTrackStmt, string(rID), u.ID.String()).Scan(&qtID, &trackBytes, &nextID)
+			err := tx.QueryRow(nextTrackStmt, string(rID), u.ID).Scan(&qtID, &trackBytes, &nextID)
 			if err == sql.ErrNoRows {
 				continue
 			} else if err != nil {
@@ -403,7 +391,7 @@ func (s *DB) NextTrack(rID db.RoomID) (*db.User, *radio.Track, error) {
 
 			// Update our next track, because we're taking this one.
 			// next_queue_track_id, room_id, user_id
-			if _, err := tx.Exec(updateNextTrackStmt, nextID, string(rID), u.ID.String()); err != nil {
+			if _, err := tx.Exec(updateNextTrackStmt, nextID, string(rID), u.ID); err != nil {
 				tChan <- &result{err: err}
 				return
 			}
@@ -553,7 +541,7 @@ func (s *DB) AddUserToRoom(rid db.RoomID, uid db.UserID) error {
 		}
 		defer tx.Rollback()
 
-		_, err = tx.Exec(addQueueStmt, string(rid), uid.String())
+		_, err = tx.Exec(addQueueStmt, string(rid), uid)
 		if err != nil {
 			errChan <- err
 			return
@@ -595,7 +583,7 @@ func (s *DB) User(id db.UserID) (*db.User, error) {
 	}
 	uChan := make(chan *result)
 	s.dbChan <- func(sdb *sql.DB) {
-		u, err := loadUser(sdb.QueryRow(getUserStmt, id.String()))
+		u, err := loadUser(sdb.QueryRow(getUserStmt, id))
 		uChan <- &result{user: u, err: err}
 	}
 	res := <-uChan
@@ -641,7 +629,7 @@ func (s *DB) Users(rid db.RoomID) ([]*db.User, error) {
 func (s *DB) AddUser(user *db.User) error {
 	errChan := make(chan error)
 	s.dbChan <- func(sdb *sql.DB) {
-		_, err := sdb.Exec(addUserStmt, user.ID.String(), user.First, user.Last)
+		_, err := sdb.Exec(addUserStmt, user.ID, user.First, user.Last)
 		errChan <- err
 	}
 	return <-errChan
@@ -705,7 +693,7 @@ func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) erro
 		if afterQTID == "" {
 			// This means they want to insert the track first. First, we look for an existing first track.
 			var firstTrackID string
-			if err := tx.QueryRow(getFirstQueueTrackStmt, string(qID.RoomID), qID.UserID.String()).Scan(&firstTrackID); err == sql.ErrNoRows {
+			if err := tx.QueryRow(getFirstQueueTrackStmt, string(qID.RoomID), qID.UserID).Scan(&firstTrackID); err == sql.ErrNoRows {
 				// There are no tracks in the queue, we're the first. We can leave
 				// prevID and nextID as null.
 			} else if err != nil {
@@ -729,7 +717,7 @@ func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) erro
 		}
 
 		var nextQueueTrackID sql.NullString
-		if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID.String()).Scan(&nextQueueTrackID); err == sql.ErrNoRows {
+		if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID).Scan(&nextQueueTrackID); err == sql.ErrNoRows {
 			errChan <- err
 			return
 		}
@@ -751,7 +739,7 @@ func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) erro
 
 		// Insert the track, and once that's successful, start updating the
 		// surrounding tracks.
-		if _, err := tx.Exec(addQueueTrackStmt, id, prevID, nextID, track.ID, string(qID.RoomID), qID.UserID.String()); err != nil {
+		if _, err := tx.Exec(addQueueTrackStmt, id, prevID, nextID, track.ID, string(qID.RoomID), qID.UserID); err != nil {
 			errChan <- err
 			return
 		}
@@ -772,7 +760,7 @@ func (s *DB) AddTrack(qID db.QueueID, track *radio.Track, afterQTID string) erro
 		// 2. If there is a next track, but we've been added before it.
 		// 3. If there is a next track, and we just got placed in front of it.
 		if !nextQueueTrackID.Valid || (nextQueueTrackID.Valid && afterQTID == "") || (nextQueueTrackID.Valid && nextQueueTrackID.String == nextID.String) {
-			if _, err := tx.Exec(updateNextTrackStmt, id, string(qID.RoomID), qID.UserID.String()); err != nil {
+			if _, err := tx.Exec(updateNextTrackStmt, id, string(qID.RoomID), qID.UserID); err != nil {
 				errChan <- err
 				return
 			}
@@ -841,7 +829,7 @@ func (s *DB) RemoveTrack(qID db.QueueID, qtID string) error {
 		}
 
 		var nextQueueTrackID sql.NullString
-		if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID.String()).Scan(&nextQueueTrackID); err == sql.ErrNoRows {
+		if err := tx.QueryRow(getQueueStmt, string(qID.RoomID), qID.UserID).Scan(&nextQueueTrackID); err == sql.ErrNoRows {
 			errChan <- err
 			return
 		}
@@ -854,7 +842,7 @@ func (s *DB) RemoveTrack(qID db.QueueID, qtID string) error {
 		// The song we're removing was the next up, need to set it to the next
 		// track.
 		if nextQueueTrackID.String == qtID {
-			if _, err := tx.Exec(updateNextTrackStmt, nextID, string(qID.RoomID), qID.UserID.String()); err != nil {
+			if _, err := tx.Exec(updateNextTrackStmt, nextID, string(qID.RoomID), qID.UserID); err != nil {
 				errChan <- err
 				return
 			}

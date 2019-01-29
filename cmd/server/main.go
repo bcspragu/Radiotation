@@ -1,6 +1,7 @@
 package main // import github.com/bcspragu/Radiotation/cmd/server
 
 import (
+	"context"
 	"log"
 	"math/rand"
 	"net/http"
@@ -9,10 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	firebase "firebase.google.com/go"
 	"github.com/bcspragu/Radiotation/spotify"
 	"github.com/bcspragu/Radiotation/sqldb"
 	"github.com/bcspragu/Radiotation/srv"
 	"github.com/namsral/flag"
+	"google.golang.org/api/option"
 )
 
 var (
@@ -24,6 +27,8 @@ var (
 	dev           = flag.Bool("dev", true, "If true, use development configuration")
 	frontendGlob  = flag.String("frontend_glob", "", "The location to find the frontend HTML files.")
 	staticDir     = flag.String("static_dir", "", "The location to find the static frontend files.")
+	projectID     = flag.String("project_id", "", "The Firebase/GCP project ID to authenticate with.")
+	creds         = flag.String("service_accoutn_creds", "", "The location of the JSON-formatted service account credentials.")
 	dbPath        = flag.String("db_path", "", "The location to store/load the SQLite database.")
 )
 
@@ -40,10 +45,25 @@ func main() {
 		log.Fatalf("Failed to initialize datastore: %v", err)
 	}
 
+	ctx := context.Background()
+	app, err := firebase.NewApp(ctx, &firebase.Config{
+		ProjectID: *projectID,
+	}, option.WithCredentialsFile(*creds))
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase: %v", err)
+	}
+
+	auth, err := app.Auth(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase Auth: %v", err)
+	}
+
 	s, err := srv.New(db, &srv.Config{
-		Dev:          *dev,
-		ClientID:     *clientID,
-		FCMKey:       *fcmKey,
+		Dev:        *dev,
+		ClientID:   *clientID,
+		FCMKey:     *fcmKey,
+		AuthClient: auth,
+
 		SongServer:   spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
 		FrontendGlob: *frontendGlob,
 		StaticDir:    *staticDir,

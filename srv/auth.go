@@ -2,42 +2,59 @@ package srv
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
+
+	"firebase.google.com/go/auth"
 
 	"github.com/bcspragu/Radiotation/db"
-	oidc "github.com/coreos/go-oidc"
 )
 
 func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
-	token := r.PostFormValue("token")
-	ti, err := s.verifyIdToken(token)
+	var req struct {
+		Token     string `json:"token"`
+		Name      string `json:"name"`
+		Anonymous bool   `json:"anonymous"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("failed to decode request: %v", err)
+		return
+	}
+
+	tkn, err := s.verifyIDToken(r.Context(), req.Token)
 	if err != nil {
-		log.Printf("verifyIdToken(%s): %v", token, err)
+		log.Printf("verifyIDToken(%s): %v", req.Token, err)
 		return
 	}
 
-	var name struct {
-		First string `json:"given_name"`
-		Last  string `json:"family_name"`
+	ns := strings.Split(req.Name, " ")
+	first, last := ns[0], ""
+	if len(ns) > 1 {
+		last = strings.Join(ns[1:], " ")
 	}
-	if err := ti.Claims(&name); err != nil {
-		log.Printf("token.Claims: %v", err)
-		return
+	if req.Anonymous {
+		first, last = "Anonymous", "User"
 	}
 
-	// If the token is good, store the information in the user's encrypted cookie
-	u := db.GoogleUser(ti.Subject, name.First, name.Last)
+	u := &db.User{
+		ID:    db.UserID(tkn.UID),
+		First: first,
+		Last:  last,
+	}
+
+	// Store the information in the user's encrypted cookie.
 	s.createUser(w, u)
 	w.Write([]byte("success"))
 }
 
-func (s *Srv) verifyIdToken(rawIDToken string) (*oidc.IDToken, error) {
-	// Verify the token
-	idToken, err := s.googleVerifier.Verify(context.Background(), rawIDToken)
+func (s *Srv) verifyIDToken(ctx context.Context, rawToken string) (*auth.Token, error) {
+	tkn, err := s.authClient.VerifyIDToken(ctx, rawToken)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("VerifyIDToken: %v", err)
 	}
 
-	return idToken, err
+	return tkn, nil
 }
