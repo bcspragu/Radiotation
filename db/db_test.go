@@ -143,7 +143,7 @@ func testAddUserToRoom(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	userCount(t, users, 0)
 
 	var (
-		uID1  = db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+		uID1  = db.UserID("testid")
 		user1 = &db.User{ID: uID1, First: "Test", Last: "Name"}
 	)
 	if err := sdb.AddUser(user1); err != nil {
@@ -163,7 +163,7 @@ func testAddUserToRoom(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	userEquals(t, users[0], user1)
 
 	var (
-		uID2  = db.UserID{AccountType: db.GoogleAccount, ID: "testid2"}
+		uID2  = db.UserID("testid2")
 		user2 = &db.User{ID: uID2, First: "Another", Last: "Test"}
 	)
 
@@ -192,7 +192,7 @@ func testUser(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	sdb, closeFn := newDB(t)
 	defer closeFn()
 
-	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	uID := db.UserID("testid")
 	wantUser := &db.User{ID: uID, First: "Test", Last: "Name"}
 	if err := sdb.AddUser(wantUser); err != nil {
 		t.Fatalf("AddUser(): %v", err)
@@ -220,7 +220,7 @@ func testTracks(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 		t.Fatalf("AddRoom(): %v", err)
 	}
 
-	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	uID := db.UserID("testid")
 	user := &db.User{ID: uID, First: "Test", Last: "Name"}
 
 	if err := sdb.AddUser(user); err != nil {
@@ -285,7 +285,7 @@ func testNextTrackOneUser(t *testing.T, newDB func(*testing.T) (db.DB, closeFn))
 		t.Fatalf("AddRoom(): %v", err)
 	}
 
-	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	uID := db.UserID("testid")
 	user := &db.User{ID: uID, First: "Test", Last: "Name"}
 
 	if err := sdb.AddUser(user); err != nil {
@@ -384,7 +384,7 @@ func testNextTrackAddNext(t *testing.T, newDB func(*testing.T) (db.DB, closeFn))
 		t.Fatalf("AddRoom(): %v", err)
 	}
 
-	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	uID := db.UserID("testid")
 	user := &db.User{ID: uID, First: "Test", Last: "Name"}
 
 	if err := sdb.AddUser(user); err != nil {
@@ -486,7 +486,7 @@ func testNextTrackMultipleUsers(t *testing.T, newDB func(*testing.T) (db.DB, clo
 	var users []*db.User
 	for i := 0; i < 3; i++ {
 		users = append(users, &db.User{
-			ID:    db.UserID{AccountType: db.GoogleAccount, ID: fmt.Sprintf("testid%d", i)},
+			ID:    db.UserID(fmt.Sprintf("testid%d", i)),
 			First: fmt.Sprintf("Test %d", i),
 			Last:  fmt.Sprintf("Name %d", i),
 		})
@@ -569,7 +569,7 @@ func testAddTrack(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	}
 
 	user := &db.User{
-		ID:    db.UserID{AccountType: db.GoogleAccount, ID: "testid"},
+		ID:    db.UserID("testid"),
 		First: "Test",
 		Last:  "Name",
 	}
@@ -666,7 +666,7 @@ func testRemoveTrack(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	}
 
 	user := &db.User{
-		ID:    db.UserID{AccountType: db.GoogleAccount, ID: "testid"},
+		ID:    db.UserID("testid"),
 		First: "Test",
 		Last:  "Name",
 	}
@@ -805,7 +805,7 @@ func testHistory(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 		t.Fatalf("AddRoom(): %v", err)
 	}
 
-	uID := db.UserID{AccountType: db.GoogleAccount, ID: "testid"}
+	uID := db.UserID("testid")
 	wantUser := &db.User{ID: uID, First: "Test", Last: "Name"}
 	if err := sdb.AddUser(wantUser); err != nil {
 		t.Fatalf("AddUser(): %v", err)
