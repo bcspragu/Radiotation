@@ -5,6 +5,7 @@ steps:
 - name: backend
   image: golang:1.11
   commands:
+    - apt-get install build-essential
     - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/server/server github.com/bcspragu/Radiotation/cmd/server
     - GOCACHE=/go/pkg/mod/go-build GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o cmd/goose/goose github.com/bcspragu/Radiotation/cmd/goose
     - GOCACHE=/go/pkg/mod/go-build go test ./...
