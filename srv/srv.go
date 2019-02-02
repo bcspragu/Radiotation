@@ -46,13 +46,10 @@ type Srv struct {
 }
 
 type Config struct {
-	ClientID     string
-	SongServer   radio.SongServer
-	Dev          bool
-	FCMKey       string
-	AuthClient   *auth.Client
-	FrontendGlob string
-	StaticDir    string
+	ClientID   string
+	SongServer radio.SongServer
+	FCMKey     string
+	AuthClient *auth.Client
 }
 
 // New returns an initialized server.

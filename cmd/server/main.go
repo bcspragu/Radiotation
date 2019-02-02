@@ -24,11 +24,8 @@ var (
 	fcmKey        = flag.String("fcm_key", "", "The Firebase Cloud Messaging Key to use")
 	spotifyClient = flag.String("spotify_client_id", "", "The client ID of the Spotify application")
 	spotifySecret = flag.String("spotify_secret", "", "The secret of the Spotify application")
-	dev           = flag.Bool("dev", true, "If true, use development configuration")
-	frontendGlob  = flag.String("frontend_glob", "", "The location to find the frontend HTML files.")
-	staticDir     = flag.String("static_dir", "", "The location to find the static frontend files.")
 	projectID     = flag.String("project_id", "", "The Firebase/GCP project ID to authenticate with.")
-	creds         = flag.String("service_accoutn_creds", "", "The location of the JSON-formatted service account credentials.")
+	creds         = flag.String("service_account_creds", "", "The location of the JSON-formatted service account credentials.")
 	dbPath        = flag.String("db_path", "", "The location to store/load the SQLite database.")
 )
 
@@ -59,14 +56,11 @@ func main() {
 	}
 
 	s, err := srv.New(db, &srv.Config{
-		Dev:        *dev,
 		ClientID:   *clientID,
 		FCMKey:     *fcmKey,
 		AuthClient: auth,
 
-		SongServer:   spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
-		FrontendGlob: *frontendGlob,
-		StaticDir:    *staticDir,
+		SongServer: spotify.NewSongServer("spotify.com", *spotifyClient, *spotifySecret),
 	})
 	if err != nil {
 		log.Fatalf("Failed to start DB: %v", err)
