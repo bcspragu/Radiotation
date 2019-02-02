@@ -18,9 +18,9 @@ type (
 	RoomID string
 
 	Room struct {
-		ID          RoomID
-		DisplayName string
-		RotatorType RotatorType
+		ID          RoomID      `json:"id"`
+		DisplayName string      `json:"displayName"`
+		RotatorType RotatorType `json:"-"`
 	}
 )
 

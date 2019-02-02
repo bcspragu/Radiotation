@@ -4,8 +4,9 @@ type (
 	UserID string
 
 	User struct {
-		ID          UserID
-		First, Last string
+		ID    UserID `json:"id"`
+		First string `json:"first"`
+		Last  string `json:"last"`
 	}
 )
 

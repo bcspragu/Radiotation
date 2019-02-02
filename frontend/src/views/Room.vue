@@ -1,7 +1,7 @@
 <template>
   <div class="room-container">
-    <div class="columns is-mobile">
-      <div class="column is-7-desktop is-8-mobile is-offset-1-desktop">
+    <div class="columns">
+      <div class="column is-7 is-offset-1">
         <b-field>
           <b-input expanded placeholder="Search for music..."
             type="search"
@@ -16,15 +16,17 @@
           </p>
         </b-field>
       </div>
-      <div class="column is-3-desktop is-4-mobile">
-        <a class="button is-outlined is-fullwidth is-static" v-show="room.ID">Code: {{room.ID}}</a>
+      <div class="column is-3">
+        <div class="room-id-button" @click="copyID">
+        <a class="button is-outlined is-fullwidth is-static" v-show="room.id">Code: {{room.id}}</a>
+        </div>
       </div>
     </div>
     <div class="queue">
-      <div v-for="(track, index) in queue" class="container" :class="{played: track.Played, 'not-played': !track.Played}" :key="track.ID">
+      <div v-for="(track, index) in queue" class="container" :class="{played: track.played, 'not-played': !track.played}" :key="track.id">
         <div class="columns is-gapless is-mobile">
-          <div class="column is-10"><Track v-bind="track.Track"/></div>
-          <div v-if="!track.Played" class="column is-2 song-op">
+          <div class="column is-10"><Track v-bind="track.track"/></div>
+          <div v-if="!track.played" class="column is-2 song-op">
             <button v-on:click="removeSong(track, index)" class="button is-link"><b-icon icon="close"></b-icon></button>
           </div>
         </div>
@@ -41,7 +43,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 import NowPlaying from '@/components/NowPlaying.vue';
 import Track from '@/components/Track.vue';
-import { Room as JRoom, QueueTrack, Track as JTrack } from '@/data';
+import { Room as JRoom, QueueTrack, Track as JTrack, RoomInfo } from '@/data';
 
 @Component({
   components: {
@@ -50,9 +52,10 @@ import { Room as JRoom, QueueTrack, Track as JTrack } from '@/data';
   },
 })
 export default class Room extends Vue {
-  private id = this.$route.params.id;
+  private id = '';
   private room: JRoom = {id: '', displayName: ''};
   private nowPlaying: JTrack | null = {
+    id: '',
     name: 'Nothing Playing Yet',
     artists: [{name: ''}],
     album: {
@@ -64,8 +67,34 @@ export default class Room extends Vue {
   private query = '';
 
   private created(): void {
-    this.fetchRoom();
+    this.id = this.$route.params.id;
+    if (this.$root.$data.roomInfo) {
+      const info = JSON.parse(JSON.stringify(this.$root.$data.roomInfo));
+      this.setInfo(info);
+      this.$root.$data.roomInfo = null;
+    } else {
+      this.fetchRoom();
+    }
     this.connectWebSocket();
+  }
+
+  private setInfo(rmInfo: RoomInfo): void {
+    this.room = rmInfo.room;
+    this.queue = rmInfo.queue;
+    if (!rmInfo.track) {
+      this.nowPlaying = {
+        id: '',
+        name: 'Nothing Playing Yet',
+        artists: [{name: ''}],
+        album: {
+          name: '',
+          images: [{url: 'https://via.placeholder.com/150x150'}],
+        },
+      };
+    } else {
+      this.nowPlaying = rmInfo.track;
+    }
+    this.$emit('updateTitle', `Room '${rmInfo.room.displayName}'`);
   }
 
   private removeSong(track: QueueTrack, index: number): void {
@@ -85,28 +114,15 @@ export default class Room extends Vue {
     this.$http.get(`room/${this.id}`).then((response) => {
       const data = response.data;
       if (data.RoomNotFound) {
-        this.$router.push({name: 'createRoom', params: {id: this.id}});
+        // TODO: Also add a note like, "Room ABCD" doesn't exist.
+        this.$router.push({name: 'Home'});
         return;
       }
       if (data.Error) {
         this.$emit('ajaxErr', data);
         return;
       }
-      this.$emit('updateTitle', `Room '${data.Room.DisplayName}'`);
-      this.room = data.Room;
-      this.queue = data.Queue;
-      if (!data.Track) {
-        this.nowPlaying = {
-          name: 'Nothing Playing Yet',
-          artists: [{name: ''}],
-          album: {
-            name: '',
-            images: [{url: 'https://via.placeholder.com/150x150'}],
-          },
-        };
-      } else {
-        this.nowPlaying = data.Track;
-      }
+      this.setInfo(data);
     });
   }
 
@@ -114,7 +130,7 @@ export default class Room extends Vue {
     if (!this.query) {
       return;
     }
-    this.$router.push({name: 'songSearch', params: {roomID: this.id}, query: {query: this.query}});
+    this.$router.push({name: 'SongSearch', params: {roomID: this.id}, query: {query: this.query}});
   }
 
   private connectWebSocket(): void {
@@ -126,15 +142,95 @@ export default class Room extends Vue {
           newURI = 'wss:';
       }
       newURI += '//' + loc.host;
-      newURI += loc.pathname + `api/ws/room/${this.id}`;
+      newURI += `/api/ws/room/${this.id}`;
       const conn = new WebSocket(newURI);
       conn.onclose = (evt) => {
+        console.log('closed');
         console.log(evt);
       };
       conn.onmessage = (evt) => {
+        console.log('msg');
         this.fetchRoom();
       };
     }
   }
+
+  private copyID(): void {
+    // Create a <textarea> element
+    const el = document.createElement('textarea');
+    // Set its value to the string that you want copied
+    el.value = this.id;
+    // Make it readonly to be tamper-proof
+    el.setAttribute('readonly', '');
+    el.style.position = 'absolute';
+    // Move outside the screen to make it invisible
+    el.style.left = '-9999px';
+    // Append the <textarea> element to the HTML document
+    document.body.appendChild(el);
+    let selected!: boolean | Range;
+    if (document && document.getSelection()) {
+      // Check if there is any content selected previously.
+      selected = document.getSelection()!.rangeCount > 0
+          ? document!.getSelection()!.getRangeAt(0) // Store selection if found
+          : false;                                // Mark as false to know no selection existed before
+    }
+
+    // Select the <textarea> content
+    el.select();
+    // Copy - only works as a result of a user action (e.g. click events)
+    document.execCommand('copy');
+    // Remove the <textarea> element
+    document.body.removeChild(el);
+
+    // If a selection existed before copying
+    if (selected instanceof Range) {
+      // Unselect everything on the HTML document
+      document.getSelection()!.removeAllRanges();
+      // Restore the original selection
+      document.getSelection()!.addRange(selected);
+    }
+  }
 }
 </script>
+
+<style scoped>
+.room-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.queue {
+  flex: 1;
+  overflow: auto;
+}
+
+.divider {
+  margin: 0;
+  font-size: 10px;
+  height: 18px;
+  line-height: 16px;
+  background-color: #555;
+  color: white;
+  text-align: center;
+}
+
+.played {
+  opacity: 0.2;
+}
+
+.song-op {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.now-playing {
+  background-color: #F8F9FA;
+  height: 75px;
+}
+
+.room-id-button:hover {
+  cursor: pointer;
+}
+</style>

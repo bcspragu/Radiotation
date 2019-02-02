@@ -21,9 +21,9 @@ import { Artist, Album } from '@/data';
 
 @Component
 export default class Track extends Vue {
-  @Prop() private artists: Artist[] = [];
-  @Prop() private name: string = '';
-  @Prop() private album: Album | null = null;
+  @Prop({default: () => [] }) private artists!: Artist[];
+  @Prop({default: ''}) private name!: string;
+  @Prop({default: null}) private album!: Album | null;
 
   get artist(): string {
     const names: string[] = [];
@@ -31,6 +31,17 @@ export default class Track extends Vue {
       names.push(artist.name);
     }
     return names.join(', ');
+  }
+
+  get image(): string {
+    let url = 'https://via.placeholder.com/150x150';
+    if (!this.album) {
+      return url;
+    }
+    if (this.album.images.length > 0) {
+      url = this.album.images[0].url;
+    }
+    return url;
   }
 }
 </script>

@@ -45,9 +45,10 @@ func (s *Srv) serveVerifyToken(w http.ResponseWriter, r *http.Request) {
 		Last:  last,
 	}
 
-	// Store the information in the user's encrypted cookie.
+	// Store the information in our DB.
 	s.createUser(w, u)
-	w.Write([]byte("success"))
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true}`))
 }
 
 func (s *Srv) verifyIDToken(ctx context.Context, rawToken string) (*auth.Token, error) {

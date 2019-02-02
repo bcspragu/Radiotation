@@ -1,70 +1,72 @@
 <template>
   <div>
-    <div v-if="!user" class="columns is-centered">
-      <div class="column is-2">
-        <SignIn class="is-large is-fullwidth" @loggedIn="onUserLoggedIn"/>
+    <div class="columns">
+      <div class="column is-6 is-offset-3 is-10-mobile is-offset-1-mobile">
+        <h1 class="has-text-centered is-size-3">Search for Room</h1>
+        <b-field grouped>
+          <b-field expanded label="Room Code">
+            <b-input
+              autocomplete="off"
+              @keyup.native.enter="search"
+              type="text"
+              v-model="query"
+              name="room-code"
+              placeholder="Room Code or Name"></b-input>
+          </b-field>
+          <b-field class="align-button" label=".">
+            <p class="control">
+              <button v-on:click="search" class="button is-primary">Search</button>
+            </p>
+          </b-field>
+        </b-field>
+        <h1 class="has-text-centered is-size-3">New Room</h1>
+        <b-field expanded label="Room Name">
+          <b-input
+            autocomplete="off"
+            @keyup.native.enter="createRoom"
+            type="text"
+            v-model="roomName"
+            name="room"
+            class="form-input"
+            placeholder="Room Name"></b-input>
+        </b-field>
+        <b-field grouped>
+          <b-field label="Shuffle Order" expanded>
+            <b-select v-model="shuffleOrder" name="shuffleOrder" class="form-select" expanded>
+              <option value="robin">Round Robin</option>
+              <option value="shuffle">Fair Random</option>
+              <option value="random">True Random</option>
+            </b-select>
+          </b-field>
+          <b-field class="align-button" label=".">
+            <p class="control">
+              <button v-on:click="createRoom" class="button is-primary">Create</button>
+            </p>
+          </b-field>
+        </b-field>
       </div>
     </div>
-    <div v-else>
-      <div class="columns is-centered">
-        <div class="column is-6 is-10-mobile is-offset-1-mobile instructions">
-          <h1 class="is-size-3 has-text-centered">Instructions</h1>
-          <ol class="is-size-4">
-            <li>Log in with your Google Account.</li>
-            <li>Join an existing room with your friends or create a new one.</li>
-            <li>Search for your favorite songs, and add them to your playlist.</li>
-            <li>Open up the Radiotation app for Android and start playing it back.</li>
-          </ol>
-          <p class="is-size-5">
-            Radiotation will handle the rest, giving everyone equal playtime in the
-            car (as long as everyone has added music!)
-          </p>
+    <hr>
+    <div class="columns">
+      <div class="column is-6 is-offset-3 is-10-mobile is-offset-1-mobile instructions">
+        <h1 class="is-size-3 has-text-centered">Instructions</h1>
+        <div class=columns>
+          <div class="column is-10 is-offset-2">
+            <ol class="is-size-4">
+              <li>Join an existing room with your friends or create a new one.</li>
+              <li>Search for your favorite songs, and add them to your playlist.</li>
+              <li>Open up the Radiotation app for Android and start playing it back.</li>
+            </ol>
+          </div>
         </div>
-      </div>
-      <div class="columns is-centered">
-        <div class="column is-4">
-          <h1 class="has-text-centered is-size-3">Join Room</h1>
-          <b-field grouped>
-            <b-field expanded label="Room Code">
-              <b-input
-                autocomplete="off"
-                @keyup.native.enter="joinRoom"
-                type="text"
-                v-model="roomCode"
-                name="room-code"
-                placeholder="Room Code"></b-input>
-            </b-field>
-            <b-field class="align-button" label=".">
-              <p class="control">
-                <button v-on:click="joinRoom" class="button is-primary">Join</button>
-              </p>
-            </b-field>
-          </b-field>
-        </div>
-        <div class="column is-4 is-offset-1">
-          <h1 class="has-text-centered is-size-3">Search for Room</h1>
-          <b-field grouped>
-            <b-field expanded label="Search">
-              <b-input
-                autocomplete="off"
-                @keyup.native.enter="searchForRoom"
-                type="text"
-                v-model="searchTerm"
-                name="search-room"
-                placeholder="Search"></b-input>
-            </b-field>
-            <b-field class="align-button" label=".">
-              <p class="control">
-                <button v-on:click="searchForRoom" class="button is-primary">Search</button>
-              </p>
-            </b-field>
-          </b-field>
-        </div>
-      </div>
-      <div class="columns is-centered">
-        <div class="column is-6">
-          <h1 class="has-text-centered is-size-3">New Room</h1>
-          <RoomForm></RoomForm>
+        <hr>
+        <div class=columns>
+          <div class="column is-8 is-offset-2">
+            <p class="is-size-5">
+              Radiotation will handle the rest, giving everyone equal playtime in the
+              car (as long as everyone has added music!)
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -73,74 +75,70 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import RoomForm from '@/components/RoomForm.vue';
-import SignIn from '@/components/SignIn.vue';
 
-@Component({
-  components: {
-    RoomForm,
-    SignIn,
-  },
-})
-
+@Component
 export default class Home extends Vue {
-  // TODO: Add a real User type instead of '{}'.
-  private user: {} | null = null;
-  private roomCode = '';
-  private searchTerm = '';
-  private redirect: string = '';
+  // For searching.
+  private query = '';
+
+  // For creating.
+  private roomName = '';
+  private shuffleOrder = 'robin';
 
   private created(): void {
-    if (this.$route.query.redirect instanceof Array) {
-      this.redirect = this.$route.query.redirect[0];
-    } else {
-      this.redirect = this.$route.query.redirect;
-    }
     this.$emit('updateTitle', 'Radiotation');
-    this.fetchUser();
   }
 
-  private fetchUser(): void {
-    this.$http.get('user').then((response) => {
+  private search(): void {
+    this.$http.get('search', {params: {query: this.query}}).then((response) => {
       const data = response.data;
-      if (!data.Error) {
-        this.user = data;
+      switch (data.type) {
+        case 'results':
+          this.$root.$data.searchResults = data.results;
+          this.$router.push({name: 'RoomSearch', query: {query: this.query}});
+          break;
+        case 'room':
+          this.$root.$data.roomInfo = data.roomInfo;
+          this.$router.push({name: 'Room', params: {id: data.roomInfo.room.id}});
+          break;
+        default:
+          console.log(`unknown response type ${data.type}`);
       }
     });
   }
 
-  private onUserLoggedIn(user: any): void {
-    if (this.user) {
-      if (this.redirect) {
-        this.$router.push({path: this.redirect});
+  private createRoom(): void {
+    const req = {
+      roomName: this.roomName,
+      shuffleOrder: this.shuffleOrder,
+    };
+    this.$http.post('room', req).then((response) => {
+      const data = response.data;
+      console.log(data);
+      if (data.Error) {
+        this.$emit('ajaxErr', data);
+        return;
       }
-      return;
-    }
-
-    user.getIdToken().then((token: string) => {
-      this.$http.post('verifyToken', {token, name: user.displayName, anonymous: user.isAnonymous}).then(() => {
-        this.fetchUser();
-      });
+      this.$router.push({name: 'Room', params: {id: data.ID}});
     });
   }
-
-  private joinRoom(): void {
-    this.$router.push({name: 'Room', params: {id: this.roomCode}});
-  }
-
-  private searchForRoom(): void {
-    this.$router.push({name: 'RoomSearch', query: {query: this.searchTerm}});
-  }
-
 }
 </script>
 
-<style scoped>
-.instructions {
-  margin-top: 1em;
+<style>
+.align-button .label {
+  visibility: hidden;
 }
 
-#g-signin {
-  display: inline-block
+.columns {
+	margin: 0;
+}
+
+@media screen and (min-width: 768px) {
+	.columns {
+	    margin-left: -0.75rem;
+	    margin-right: -0.75rem;
+	    margin-top: -0.75rem;
+	}
 }
 </style>

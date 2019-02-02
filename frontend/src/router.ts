@@ -6,6 +6,7 @@ import RoomSearch from './views/RoomSearch.vue';
 import Room from './views/Room.vue';
 import SongSearch from './views/SongSearch.vue';
 import CreateRoom from './views/CreateRoom.vue';
+import SignIn from './views/SignIn.vue';
 
 Vue.use(Router);
 
@@ -17,6 +18,11 @@ export default new Router({
       path: '/',
       name: 'Home',
       component: Home,
+    },
+    {
+      path: '/signIn',
+      name: 'SignIn',
+      component: SignIn,
     },
     {
       path: '/search',
@@ -32,11 +38,6 @@ export default new Router({
       path: '/room/:id/search',
       name: 'SongSearch',
       component: SongSearch,
-    },
-    {
-      path: '/room/:id/create',
-      name: 'CreateRoom',
-      component: CreateRoom,
     },
   ],
 });

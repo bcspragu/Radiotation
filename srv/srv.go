@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"firebase.google.com/go/auth"
 	"github.com/NaySoftware/go-fcm"
@@ -131,9 +132,14 @@ func (s *Srv) addToQueueLast(w http.ResponseWriter, r *http.Request, u *db.User,
 }
 
 func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room, add func(db.QueueID, *radio.Track) error) error {
-	trackID := r.FormValue("id")
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
 
-	track, err := s.track(trackID)
+	track, err := s.track(req.ID)
 	if err != nil {
 		return err
 	}
@@ -142,14 +148,19 @@ func (s *Srv) addToQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm 
 		log.Println(err)
 	}
 
-	jsonResp(w, struct{ ID string }{trackID})
+	jsonResp(w, struct{ ID string }{req.ID})
 	return nil
 }
 
 func (s *Srv) removeFromQueue(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	qtID := r.FormValue("queueTrackID")
+	var req struct {
+		QueueTrackID string `json:"queueTrackID"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
 
-	if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, qtID); err != nil {
+	if err := s.queueDB.RemoveTrack(db.QueueID{RoomID: rm.ID, UserID: u.ID}, req.QueueTrackID); err != nil {
 		log.Println(err)
 	}
 
@@ -204,15 +215,24 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Srv) serveCreateRoom(w http.ResponseWriter, r *http.Request) {
-	dispName := r.FormValue("roomName")
-	if dispName == "" {
+	var req struct {
+		DisplayName  string `json:"roomName"`
+		ShuffleOrder string `json:"shuffleOrder"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	if req.DisplayName == "" {
 		jsonErr(w, errors.New("No room name given"))
 		return
 	}
 
 	room := &db.Room{
-		DisplayName: dispName,
-		RotatorType: rotatorTypeByName(r.FormValue("shuffleOrder")),
+		DisplayName: req.DisplayName,
+		RotatorType: rotatorTypeByName(req.ShuffleOrder),
 	}
 
 	rID, err := s.roomDB.AddRoom(room)
@@ -237,10 +257,75 @@ func rotatorTypeByName(name string) db.RotatorType {
 	return typ
 }
 
+type resultRoom struct {
+	DisplayName string `json:"displayName"`
+	RoomCode    string `json:"roomCode"`
+	NumberUsers int    `json:"numberUsers"`
+}
+
+type roomInfo struct {
+	Room  *db.Room         `json:"room"`
+	Queue []*db.QueueTrack `json:"queue"`
+	Track *radio.Track     `json:"track"`
+}
+
+type roomResp struct {
+	// Whether this is a room, or search results. Will
+	// either be 'room' or 'results'.
+	Type string `json:"type"`
+
+	// Only populated for 'results'.
+	Results []resultRoom `json:"results"`
+
+	// Only populated for 'room'.
+	RoomInfo roomInfo `json:"roomInfo"`
+}
+
 func (s *Srv) serveRoomSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.FormValue("query")
+
 	if q == "" {
 		jsonErr(w, errors.New("No query given"))
+		return
+	}
+
+	u, err := s.user(r)
+	if err != nil {
+		jsonErr(w, err)
+		return
+	}
+
+	rm, err := s.roomDB.Room(db.RoomID(strings.ToUpper(q)))
+	switch err {
+	case nil:
+		qts, err := s.queueDB.Tracks(db.QueueID{
+			RoomID: rm.ID,
+			UserID: u.ID,
+		}, &db.QueueOptions{Type: db.AllTracks})
+
+		if err == db.ErrQueueNotFound {
+			if err := s.roomDB.AddUserToRoom(rm.ID, u.ID); err != nil {
+				jsonErr(w, err)
+				return
+			}
+		} else if err != nil {
+			jsonErr(w, err)
+			return
+		}
+
+		jsonResp(w, roomResp{
+			Type: "room",
+			RoomInfo: roomInfo{
+				Room:  rm,
+				Queue: qts,
+				Track: s.nowPlaying(rm.ID),
+			},
+		})
+		return
+	case db.ErrRoomNotFound:
+		// This is fine, just search for it.
+	default:
+		jsonErr(w, err)
 		return
 	}
 
@@ -250,30 +335,23 @@ func (s *Srv) serveRoomSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type respRoom struct {
-		DisplayName string
-		RoomCode    string
-		NumberUsers int
-	}
-
-	type searchResp struct {
-		Rooms []respRoom
-	}
-
-	respRooms := make([]respRoom, 0, len(rooms))
+	rms := make([]resultRoom, 0, len(rooms))
 	for _, rm := range rooms {
 		us, err := s.userDB.Users(rm.ID)
 		if err != nil {
 			log.Printf("Failed to get user list for room %q: %v", rm.ID, err)
 		}
-		respRooms = append(respRooms, respRoom{
+		rms = append(rms, resultRoom{
 			DisplayName: rm.DisplayName,
 			RoomCode:    string(rm.ID),
 			NumberUsers: len(us),
 		})
 	}
 
-	jsonResp(w, respRooms)
+	jsonResp(w, roomResp{
+		Type:    "results",
+		Results: rms,
+	})
 	return
 }
 
@@ -376,11 +454,11 @@ func (s *Srv) serveRoom(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 		return err
 	}
 
-	jsonResp(w, struct {
-		Room  *db.Room
-		Queue []*db.QueueTrack
-		Track *radio.Track
-	}{rm, qts, s.nowPlaying(rm.ID)})
+	jsonResp(w, roomInfo{
+		Room:  rm,
+		Queue: qts,
+		Track: s.nowPlaying(rm.ID),
+	})
 	return nil
 }
 
@@ -407,15 +485,17 @@ func (s *Srv) addTrackAfter(qID db.QueueID, t *radio.Track, qot db.QueueType) er
 }
 
 func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm *db.Room) error {
-	tracks, err := s.search(r.FormValue("query"))
-	if err != nil {
-		return err
+	q := r.FormValue("query")
+
+	if q == "" {
+		jsonResp(w, []interface{}{})
+		return nil
 	}
 
 	qts, err := s.queueDB.Tracks(db.QueueID{
 		RoomID: rm.ID,
 		UserID: u.ID,
-	}, &db.QueueOptions{Type: db.PlayedOnly})
+	}, &db.QueueOptions{Type: db.UnplayedOnly})
 	if err != nil {
 		return err
 	}
@@ -428,11 +508,16 @@ func (s *Srv) serveSearch(w http.ResponseWriter, r *http.Request, u *db.User, rm
 	}
 
 	type trackInQueue struct {
-		radio.Track
-		InQueue bool
+		Track   radio.Track `json:"track"`
+		InQueue bool        `json:"inQueue"`
 	}
 
-	tracksInQueue := []*trackInQueue{}
+	tracks, err := s.search(q)
+	if err != nil {
+		return err
+	}
+
+	var tracksInQueue []*trackInQueue
 	for _, t := range tracks {
 		tracksInQueue = append(tracksInQueue, &trackInQueue{
 			Track:   t,
@@ -485,7 +570,6 @@ func (s *Srv) createUser(w http.ResponseWriter, u *db.User) {
 	} else {
 		log.Printf("Error encoding cookie: %v", err)
 	}
-
 	// We've written the user, we can persist them now
 	log.Printf("Creating user with ID %s", u.ID)
 	if err := s.userDB.AddUser(u); err != nil {

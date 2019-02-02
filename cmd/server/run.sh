@@ -8,5 +8,4 @@ if [ -f $DIR/env.vars ]; then
 fi
 
 go build -o $DIR/server github.com/bcspragu/Radiotation/cmd/server
-cd $DIR
-$DIR/server --addr=:8080
+$DIR/server

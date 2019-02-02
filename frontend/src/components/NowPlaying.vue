@@ -2,13 +2,9 @@
   <div v-if='errMsg == ""' class="now-playing">
     <img class="now-art" :src="image">
     <div class="metadata-holder">
-        <div class="title metadata">{{track.Name}}</div>
+        <div class="title metadata">{{track.name}}</div>
         <div class="artist metadata">{{artist}}</div>
-        <div class="album metadata">{{track.Album.Name}}</div>
-    </div>
-    <div class="veto" v-show="track">
-      <button v-on:click="veto" class="btn btn-lg">Veto <i class="icon icon-delete"></i>
-      </button>
+        <div class="album metadata">{{track.album.name}}</div>
     </div>
   </div>
   <div class="toast toast-primary text-center" v-else>
@@ -23,8 +19,8 @@ import { Track } from '@/data';
 
 @Component
 export default class NowPlaying extends Vue {
-  @Prop() private track: Track | null = null;
-  @Prop() private roomID: string = '';
+  @Prop({default: null}) private track!: Track | null;
+  @Prop({default: ''}) private roomID!: string;
 
   private errMsg = '';
 
@@ -51,20 +47,6 @@ export default class NowPlaying extends Vue {
       return this.track.album.images[0].url;
     }
     return defURL;
-  }
-
-  private veto(): void {
-    const url = `/room/${this.roomID}/veto`;
-    this.$http.post(url).then((response) => {
-      const data = response.data;
-      if (data.NotLoggedIn || data.RoomNotFound) {
-        this.$emit('ajaxErr', data);
-        return;
-      }
-      if (data.Error) {
-        this.errMsg = data.Message;
-      }
-    });
   }
 
   private clearErr(): void {
@@ -110,13 +92,6 @@ export default class NowPlaying extends Vue {
 
 .album {
   font-size: 10px;
-}
-
-.veto {
-  margin-right: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .toast {
