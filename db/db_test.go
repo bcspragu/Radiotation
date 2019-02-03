@@ -834,8 +834,8 @@ func testHistory(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 
 	trackEntryCount(t, tes, 0)
 
-	if err := sdb.AddToHistory(rID, tracks[0]); err != nil {
-		t.Fatalf("AddToHistory(): %v", err)
+	if n, err := sdb.AddToHistory(rID, tracks[0]); n != 0 || err != nil {
+		t.Fatalf("AddToHistory(): %d, %v", n, err)
 	}
 
 	tes, err = sdb.History(rID)
@@ -846,8 +846,8 @@ func testHistory(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	trackEntryCount(t, tes, 1)
 	trackEntryEquals(t, tes[0], tracks[0])
 
-	if err := sdb.AddToHistory(rID, tracks[1]); err != nil {
-		t.Fatalf("AddToHistory(): %v", err)
+	if n, err := sdb.AddToHistory(rID, tracks[1]); n != 1 || err != nil {
+		t.Fatalf("AddToHistory(): %d, %v", n, err)
 	}
 
 	tes, err = sdb.History(rID)
@@ -859,8 +859,8 @@ func testHistory(t *testing.T, newDB func(*testing.T) (db.DB, closeFn)) {
 	trackEntryEquals(t, tes[0], tracks[0])
 	trackEntryEquals(t, tes[1], tracks[1])
 
-	if err := sdb.AddToHistory(rID, tracks[2]); err != nil {
-		t.Fatalf("AddToHistory(): %v", err)
+	if n, err := sdb.AddToHistory(rID, tracks[2]); n != 2 || err != nil {
+		t.Fatalf("AddToHistory(): %d, %v", n, err)
 	}
 
 	tes, err = sdb.History(rID)

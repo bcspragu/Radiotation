@@ -73,7 +73,7 @@ type QueueDB interface {
 
 type HistoryDB interface {
 	History(RoomID) ([]*TrackEntry, error)
-	AddToHistory(RoomID, *TrackEntry) error
+	AddToHistory(RoomID, *TrackEntry) (int, error)
 	MarkVetoed(RoomID, UserID) error
 }
 

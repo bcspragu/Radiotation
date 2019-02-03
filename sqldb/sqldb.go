@@ -892,12 +892,16 @@ func (s *DB) History(rid db.RoomID) ([]*db.TrackEntry, error) {
 	return res.tracks, nil
 }
 
-func (s *DB) AddToHistory(rid db.RoomID, te *db.TrackEntry) error {
-	errChan := make(chan error)
+func (s *DB) AddToHistory(rid db.RoomID, te *db.TrackEntry) (int, error) {
+	type res struct {
+		err error
+		idx int
+	}
+	resChan := make(chan res)
 	s.dbChan <- func(sdb *sql.DB) {
 		tx, err := sdb.Begin()
 		if err != nil {
-			errChan <- err
+			resChan <- res{err: err}
 			return
 		}
 		defer tx.Rollback()
@@ -905,16 +909,21 @@ func (s *DB) AddToHistory(rid db.RoomID, te *db.TrackEntry) error {
 		ts = append(ts, te)
 		teBytes, err := trackEntryBytes(ts)
 		if err != nil {
-			errChan <- err
+			resChan <- res{err: err}
 			return
 		}
 		if _, err := tx.Exec(updateHistoryStmt, teBytes, string(rid)); err != nil {
-			errChan <- err
+			resChan <- res{err: err}
 			return
 		}
-		errChan <- tx.Commit()
+		if err := tx.Commit(); err != nil {
+			resChan <- res{err: err}
+			return
+		}
+		resChan <- res{idx: len(ts) - 1}
 	}
-	return <-errChan
+	r := <-resChan
+	return r.idx, r.err
 }
 
 func (s *DB) MarkVetoed(rid db.RoomID, uid db.UserID) error {

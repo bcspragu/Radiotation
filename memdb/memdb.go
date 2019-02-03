@@ -341,11 +341,11 @@ func (m *DB) History(rID db.RoomID) ([]*db.TrackEntry, error) {
 	return tes, nil
 }
 
-func (m *DB) AddToHistory(rID db.RoomID, trackEntry *db.TrackEntry) error {
+func (m *DB) AddToHistory(rID db.RoomID, trackEntry *db.TrackEntry) (int, error) {
 	m.Lock()
 	defer m.Unlock()
 	m.history[rID] = append(m.history[rID], trackEntry)
-	return nil
+	return len(m.history[rID]) - 1, nil
 }
 
 func (m *DB) MarkVetoed(db.RoomID, db.UserID) error {

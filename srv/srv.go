@@ -2,6 +2,8 @@ package srv
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -169,6 +171,11 @@ func (s *Srv) queueAction(w http.ResponseWriter, r *http.Request, remove bool) {
 }
 
 func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
+	contTkn := r.FormValue("continuationToken")
+	if contTkn != "" {
+		// TODO: Don't load a new song, get it from history.
+	}
+
 	rm, err := s.room(r)
 	if err != nil {
 		jsonErr(w, err)
@@ -184,7 +191,7 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.historyDB.AddToHistory(rm.ID, &db.TrackEntry{
+	idx, err := s.historyDB.AddToHistory(rm.ID, &db.TrackEntry{
 		Track:  t,
 		UserID: u.ID,
 	})
@@ -201,13 +208,25 @@ func (s *Srv) serveSong(w http.ResponseWriter, r *http.Request) {
 	s.h.BroadcastRoom(buf.Bytes(), rm)
 
 	type trackResponse struct {
-		Error   bool
-		Message string
-		Track   *radio.Track
+		Error             bool
+		Message           string
+		Track             *radio.Track
+		ContinuationToken string
+	}
+
+	ct, err := makeContinuationToken(&continuationToken{
+		HistoryIndex: idx,
+		RoomID:       rm.ID,
+		UserID:       u.ID,
+		TrackID:      t.ID,
+	})
+	if err != nil {
+		log.Printf("Failed to generate continuation token: %v", err)
 	}
 
 	err = json.NewEncoder(w).Encode(trackResponse{
-		Track: t,
+		Track:             t,
+		ContinuationToken: ct,
 	})
 }
 
@@ -384,7 +403,7 @@ func (s *Srv) serveVeto(w http.ResponseWriter, r *http.Request, u *db.User, rm *
 		return err
 	}
 
-	err = s.historyDB.AddToHistory(rm.ID, &db.TrackEntry{
+	_, err = s.historyDB.AddToHistory(rm.ID, &db.TrackEntry{
 		Track:  t,
 		UserID: nu.ID,
 	})
@@ -638,4 +657,32 @@ func (s *Srv) search(query string) ([]radio.Track, error) {
 
 func (s *Srv) track(id string) (radio.Track, error) {
 	return s.cfg.SongServer.Track(id)
+}
+
+type continuationToken struct {
+	HistoryIndex int
+	RoomID       db.RoomID
+	UserID       db.UserID
+	TrackID      string
+}
+
+func parseContinuationToken(str string) (*continuationToken, error) {
+	dat, err := base64.RawURLEncoding.DecodeString(str)
+	if err != nil {
+		return nil, err
+	}
+	var ct continuationToken
+	if err := gob.NewDecoder(bytes.NewReader(dat)).Decode(&ct); err != nil {
+		return nil, err
+	}
+	return &ct, nil
+}
+
+func makeContinuationToken(ct *continuationToken) (string, error) {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(ct); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(buf.Bytes()), nil
 }
